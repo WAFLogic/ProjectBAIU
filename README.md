@@ -119,3 +119,7 @@ F5 ASM provides â€œBrute Force Preventionâ€ functionality in an attempt
 Other products, such as the F5 ASM, do not offer all of the malicious traffic identification logic, the static and dynamic control methods, the userID simplification functionality, or the granular configuration and user control options and flexibility.
 
 When configuring this feature with a similar set of thresholds as defined in Section C Reference (1), it was incapable of restricting a single event BAIU restricted in production traffic due to the method of throttling used by the attacking parties.
+
+
+Please feel free to reach out to The WAF Guy @ thewafguy@waflogic.com if you have questions, comments, or need assistance!
+We're always willing to help :) 
