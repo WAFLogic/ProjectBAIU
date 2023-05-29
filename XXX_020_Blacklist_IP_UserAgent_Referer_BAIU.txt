@@ -1,0 +1,121 @@
+#Blacklist IPs User Agents and Referrers
+# The name says it all.
+# 
+# Check to make sure that the following classes exist before using this iRule:
+#-Note that the below data groups should have their data stored in the data group key name.  The datagroup
+# key value is not used
+# blacklist_IPs - Disallowed true client IP addresses
+# blacklist_user_agents - Disallowed user agent headers - all entries should be lowercase
+# blacklist_referer - Disallowed referer headers - all entries should be lowercase
+# blacklist_sid - Disallowed SESSIONID - all entries should be lowercase
+# NOTE - Turn off logging with debug set to 0.  Turn on with 1
+
+
+
+when CLIENT_ACCEPTED priority 120 {
+
+
+	# 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+	set BAIU_LOG_LVL 1
+	set n_tip ""
+	set n_user_agent ""
+	set n_refer ""
+	set n_sid ""
+	set allowed ""
+}
+
+when HTTP_REQUEST priority 121 {
+######TroubleShooting Headers
+##### log local0. "~,~TIP: $tip~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~True-Client-IP Header value: [HTTP::header "True-Client-IP"]~,~"
+
+	set t_user_agent [string tolower [HTTP::header "User-Agent"]]
+	set t_refer [string tolower [HTTP::header "Referer"]]
+	# Set user cookie as Session ID
+	set sid [string range [HTTP::cookie AKAMTMXSID] 0 18 ]
+	set jsid [string range [HTTP::cookie JSESSIONID_AUTHENTICATION] 52 75 ]
+	# Set URI value
+	set baiu_host [HTTP::host]
+	set uri [HTTP::path]
+	set allowed 1
+    set geo_s [whereis $tip abbrev ]
+    set geo_c [whereis $tip country]
+    set geo_i [whereis $tip isp]
+    set geo_o [whereis $tip org]
+    set geo_la [whereis $tip latitude]
+    set geo_lo [whereis $tip longitude]
+
+	# The below if blocks are for blacklisting functionality
+	# Some of the if branches below are redundant, but this setup allows for more granular logging
+	if {$tip ne ""} {
+#		if { [class match $tip equals blacklistIP_extdg ] } {
+#			set n_tip $tip
+#			set allowed 0
+#				if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_IP_EXTDG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted client IP matched: $n_tip - DG_K: [class search -name blacklistIP_extdg equals $tip ] DG_V:  [class search -value blacklistIP_extdg equals $tip ]~,~"}
+#		}
+
+		if { [class match $tip equals blacklist_IPs ]  } {
+			set n_tip $tip
+			set allowed 0
+				if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted client IP matched: $n_tip - DG_K: [class search -name blacklist_IPs equals $tip ] DG_V:  [class search -value blacklist_IPs equals $tip ]~,~"}
+		}
+
+		if { [class match $t_user_agent contains blacklist_user_agents] } {
+			set n_user_agent $t_user_agent
+			set allowed 0
+			if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_UA:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted user agent matched: $n_user_agent - DG_K: [class search -name blacklist_user_agents equals $t_user_agent ] DG_V:  [class search -value blacklist_user_agents equals $t_user_agent ]~,~"}
+		}
+
+		if { [class match $sid equals blacklist_sid] } {
+			set n_sid $sid
+			set allowed 0
+			if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_SID:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted SID matched: $n_sid - DG_K: [class search -name blacklist_sid equals $sid ] DG_V:  [class search -value blacklist_sid equals $sid ]~,~"}
+		}
+
+		if { [class match $jsid equals blacklist_sid] } {
+			set n_sid $jsid
+			set allowed 0
+			if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_JSID:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted JSESSIONID matched: $n_sid - DG_K: [class search -name blacklist_sid equals $jsid ] DG_V:  [class search -value blacklist_sid equals $jsid ]~,~"}
+		}
+
+		if { [class match $t_refer equals blacklist_referer] } {
+			set n_refer $t_refer
+			set allowed 0
+				if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_REFER:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted referer matched: $n_refer - DG_K: [class search -name blacklist_referer equals $t_refer ] DG_V:  [class search -value blacklist_referer equals $t_refer ]~,~"}
+		}
+
+		if { [class match $geo_o equals blacklist-geo-org ] } {
+			set n_geo $geo_o
+			set allowed 0
+				if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_GEO_ORG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted GEO ORG matched: $n_geo - DG_K: [class search -name blacklist-geo-org equals $geo_o ] DG_V:  [class search -value blacklist-geo-org equals $geo_o ]~,~"}
+		}
+		if { [class match $geo_i equals blacklist-geo-isp] } {
+			set n_geo $geo_i
+			set allowed 0
+				if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_GEO_ISP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted GEO ISP matched: $n_geo - DG_K: [class search -name blacklist-geo-isp equals $geo_i ] DG_V:  [class search -value blacklist-geo-isp equals $geo_i ]~,~"}
+		}
+		if { [class match $geo_c equals blacklist-geo-country] } {
+			set n_geo $geo_c
+			set allowed 0
+				if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_GEO_COUNTRY:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted GEO Country matched: $n_geo - DG_K: [class search -name blacklist-geo-country equals $geo_c ] DG_V:  [class search -value blacklist-geo-country equals $geo_c ]~,~"}
+		}
+		if { [class match $geo_s equals blacklist-geo-state] } {
+			set n_geo $geo_s
+			set allowed 0
+				if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~BLACKLIST_GEO_STATE:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Blacklisted GEO State matched: $n_geo - DG_K: [class search -name blacklist-geo-state equals $geo_s ] DG_V:  [class search -value blacklist-geo-state equals $geo_s ]~,~"}
+		}
+
+
+	if {$allowed ne "1"}{
+		# Change the below line to "drop" to drop the TCP connection instead
+		#HTTP::respond 403 content {<html> ٩(͡๏̯͡๏)۶ blocked ¯\_(ツ)_/¯ </html>} noserver
+        # Redirect to Les Grossman
+        HTTP::redirect  "https://www.youtube.com/watch?v=ajD1eDaZALk" 
+		# Close TCP connection so client can't make further requests
+		# Don't need this with 302
+		#reject
+	} else {
+		#Request has been allowed
+			if { $BAIU_LOG_LVL >= 3 } { log local0. "~,~ALLOWING-BLOCKING: Request allowed for IP:$tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~,~"}
+	}
+	}
+}

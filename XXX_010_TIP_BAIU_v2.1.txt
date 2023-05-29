@@ -1,0 +1,127 @@
+# This iRule is a universal rule that applies to all configurations.
+# It will pull the true client IP value from the X Forwarded For header values.
+# and then inject it into the headers. 
+# This iRule should be placed first before all other iRules to ensure the proper IP is
+# used when taking action. This iRule also ensures the localhost IP will not be blocked.
+#
+# Dependencies: NONE iRules / NONE DataGroups
+
+when CLIENT_ACCEPTED priority 110 {
+    # Null out all universal variables
+	set tip [IP::client_addr]
+	set bhost ""
+	set buri ""
+	set bqry ""
+	set geo_s [whereis $tip abbrev]
+	set geo_c [whereis $tip country]
+	set geo_i [whereis $tip isp]
+	set geo_o [whereis $tip org]
+	set geo_la [whereis $tip latitude]
+	set geo_lo [whereis $tip longitude]
+	set allowed ""
+	set waf_uid ""
+	set sid ""
+	set jsid ""
+	set b_log "0"
+	set r8luri ""
+	set r8lwww ""
+	set loginuri ""
+	set waf_uid ""
+	set waf_pass ""
+	set uid2s 0
+	set baiu_host ""
+	set IPreqCnt ""
+	set UIDreqCnt ""
+	set I2UreqCnt ""
+	set U2IreqCnt ""
+	set I2UCnt ""
+	set U2ICnt ""
+	set b_ip ""
+	set b_uid ""
+	set lp1 ""
+	set lp2 ""
+	set lp3 ""
+	set lp4 ""
+	set IPreqCnt ""
+	set IPMaxReqs ""
+	set UIDMaxReqs ""
+	set I2UMaxReqs ""
+	set U2IMaxReqs ""
+
+
+    # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+    set BAIU_LOG_LVL 1
+}
+
+when HTTP_REQUEST priority 111 {
+# Set HTTP Base Variables. Not needed if just using BAIU and less use of RAM but still will be minimal.
+# If using Universal HTTP Logger iRule, then these variables being set here now vs later is necessary.
+	set bhost [HTTP::host]
+	set buri [HTTP::path]
+	set bqry [HTTP::query]
+######TroubleShooting Headers
+###### log local0. "TIP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - True-Client-IP Header value: [HTTP::header True-Client-IP]"
+###### log local0. "TIP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - True-Client-IP Header value: [HTTP::header X-INF-Forwarded-For]"
+
+#    If using Akamai who uses True-Client-IP which is reverse of XFF then use True-Client-IP section
+#    Otherwise use the XFF section. To disable the unused section, comment it out.
+
+####################################################################
+#    !!!!BEGIN Akamai - True-Client-IP!!!!
+#    if { [ info exists tip ] } {
+#    return
+#    } else {
+#    set tip [IP::client_addr]
+#    }
+
+    if { ( [HTTP::header exists True-Client-IP] ) && not ( [HTTP::header True-Client-IP ] equals "" ) } {
+# The last True-Client-IP header will be grabbed
+    set xff [split [string map [list " " ""] [HTTP::header True-Client-IP]] ","] 
+
+# If the header ends with 127.0.0.1 but is in a list of IPs then set the TIP as the value before 127.0.0.1
+    if {$xff ends_with "127.0.0.1"} {
+    set tip [lindex $xff end-1]
+        if { $BAIU_LOG_LVL >= 3 } { log local0. "TIP: IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - 127.0.0.1 re-written." }
+    } else {
+
+# If TIP appears normal then write TIP value as last IP value 
+    set tip [lindex $xff end]
+        if { $BAIU_LOG_LVL >= 3 } { log local0. "TIP: IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - TIP value written." }
+    }
+
+# If TIP equals 127.0.0.1 then re-write to avoid blocking WAF TMM processes
+    if {$tip eq "127.0.0.1"} { set tip "169.254.254.200" }
+        if { $BAIU_LOG_LVL >= 3 } { log local0. "TIP: IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - Saved 127.0.0.1 re-wrote TIP." }
+
+    #HTTP::header remove "True-Client-IP"
+    #HTTP::header insert True-Client-IP $tip
+    } else {
+    if { ( [HTTP::header exists X-INF-Forwarded-For] ) && not ( [HTTP::header X-INF-Forwarded-For ] equals "" ) } {
+        if { $BAIU_LOG_LVL >= 3 } { log local0. "TIP: IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - NO TIP Header - Using X-INF-Forwarded-For." }
+        # The last True-Client-IP header will be grabbed
+        set xff [split [string map [list " " ""] [HTTP::header "X-INF-Forwarded-For"]] ","] 
+
+
+        # If the header ends with 127.0.0.1 but is in a list of IPs then set the TIP as the value before 127.0.0.1
+        if {$xff starts_with " 127.0.0.1"} { 
+        set tip [lindex $xff 1]
+        if { $BAIU_LOG_LVL >= 3 } { log local0. "TIP: IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - 127.0.0.1 re-written" }
+        } else {
+            # If TIP appears normal then write TIP value as last IP value 
+            set tip [lindex $xff 0]
+            if { $BAIU_LOG_LVL >= 3 } { log local0. "TIP: IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - TIP value written" }
+        }
+
+        } else {
+        set tip [IP::client_addr]
+        if { $BAIU_LOG_LVL >= 3 } { log local0. "TIP: IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - NO TIP - 169.254.254.254 TIP written." }
+        #HTTP::header replace True-Client-IP $tip
+        }
+    }
+
+        if { not ( $tip matches_regex {^[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}$} ) } {
+            #HTTP::header replace "True-Client-IP" [IP::client_addr]
+            #HTTP::header replace "X-INF-Forwarded-For" [IP::client_addr]
+            set tip [IP::client_addr]
+    }
+}
