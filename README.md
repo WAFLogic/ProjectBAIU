@@ -123,3 +123,9 @@ When configuring this feature with a similar set of thresholds as defined in Sec
 
 Please feel free to reach out to The WAF Guy @ thewafguy@waflogic.com if you have questions, comments, or need assistance!
 We're always willing to help :) 
+
+Original Home of ProjectBAIU & the WHOIS DB:
+https://projectbaiu.org
+Developer of ProjectBAIU & the WHOIS DB:
+The WAF Guy @ https://waflogic.com
+thewafguy@waflogic.com
