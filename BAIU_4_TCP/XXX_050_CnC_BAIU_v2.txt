@@ -1,0 +1,479 @@
+# This iRule drops items from the BAIU Rate Limiter tables
+#
+#
+
+when HTTP_REQUEST priority 650 {
+    set BAIU_LOG_LVL 1
+    # If not from corporate LAN or more specific network, then do not invoke rule.
+    if { (not [class match $tip equals XXX_LAN ] ) } {
+    if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~BAIU_OUTSIDER:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~IP NOT FROM CORP LAN~,~"}    
+    return
+    }
+
+    # Set URI values to 0
+    set del_uid 0
+    set del_uid_all 0
+    set del_ip 0
+    set del_ip_all 0
+    set del_uri 0
+    set del_uri_all 0
+    set del_www 0
+    set del_www_all 0
+    set del_I2U 0
+    set del_U2I 0
+    set add_ip 0
+    set add_uid 0
+    set add_uri 0
+    set add_I2U 0
+    set add_U2I 0
+    set add_www 0
+    set nud_ip 0
+    set nud_uid 0
+    set nud_uri 0
+    set nud_www 0
+    # Set Ban times
+    set WWWB 600
+    set StdB 172800
+    set HalfB 43200
+    # Set value for Kill request count
+    set KillReq 5000
+    # Set value for IP/UID Nudge request count
+    set IUNudReq 10
+    # Set value for URI Nudge request count
+    set URINudReq 100
+    # Set value for URI Nudge request count
+    set WWWNudReq 100
+    set baiu_host [HTTP::host]
+    set BAIU_LOG_LVL 1
+
+    ############################################################################    
+    # enable HTTP Query value for drop URIs. Can use be used for future use too.
+    set ruri [HTTP::path]
+    set ruri_q [string range [HTTP::query] 0 34 ]
+    if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~BAIU_CNC_DEBUG_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Query: $ruri_q~,~"}    
+
+    ############################################################################
+    # Delete IP/UID/URI/WWW Section
+    ############################################################################
+    # Set value of item to delete from table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_IP" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_IP_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_ip 1
+    set ruri_q [string range [HTTP::query] 0 17 ]
+    }
+
+    # set purge full IP table value if purge table URI was called with proper -all query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_IP/DR0P4LL" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_IP_ALL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_ip_all 1
+    set ruri_q [string range [HTTP::query] 0 4 ]
+    }
+
+    # Set value of item to delete from table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_UID" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_UID_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_uid 1
+    set ruri_q [string range [HTTP::query] 0 15 ]
+    }
+
+    # Set purge full UID table value if purge table URI was called with proper -all query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_UID/DR0P4LL" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_UID_ALL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_uid_all 1
+    set ruri_q [string range [HTTP::query] 0 3 ]
+    }
+
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_URI" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_URI_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_uri 1
+    set ruri_q [string range [HTTP::query] 0 17 ]
+    }
+
+    # set purge full IP table value if purge table URI was called with proper -all query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_URI/DR0P4LL" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_URI_ALL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_uri_all 1
+    set ruri_q [string range [HTTP::query] 0 4 ]
+    }
+
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_WWW" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_WWW_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_www 1
+    set ruri_q [string range [HTTP::query] 0 17 ]
+    }
+
+    # set purge full IP table value if purge table WWW was called with proper -all query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_WWW/DR0P4LL" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_WWW_ALL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_www_all 1
+    set ruri_q [string range [HTTP::query] 0 4 ]
+    }
+
+    ############################################################################
+    # Set value of item to delete from table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_I2U" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_I2U_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_I2U 1
+    set split_q [split [HTTP::query] "&"]
+    for {set i 0} {$i < [llength $split_q]} {incr i} {
+    set qip [lindex $split_q 0]
+    set quid [lindex $split_q 1]
+    }
+    }
+
+    # Set value of item to delete from table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_DROP_U2I" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DEL_U2I_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Delete URI called Query: $ruri_q~,~"}
+    set del_U2I 1
+    set split_q [split [HTTP::query] "&"]
+    for {set i 0} {$i < [llength $split_q]} {incr i} {
+    set qip [lindex $split_q 0]
+    set quid [lindex $split_q 1]
+    }
+    }
+
+    ############################################################################
+    # Add IP/UID/URI Section    
+    ############################################################################
+    # Set value of IP to add to the IP table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_ADD_IP" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~ADD_IP_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set add_ip 1
+    set ruri_q [string range [HTTP::query] 0 17 ]
+    }
+
+    # Set value of IP to add to the UID table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_ADD_UID" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~ADD_UID_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set add_uid 1
+    set ruri_q [string range [HTTP::query] 0 15 ]
+    }
+
+    # Set value of IP to add to the URI table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_ADD_URI" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~ADD_URI_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set add_uri 1
+    set ruri_q [string range [HTTP::query] 0 15 ]
+    }
+
+    # Set value of IP to add to the WWW table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_ADD_WWW" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~ADD_WWW_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set add_www 1
+    set ruri_q [string range [HTTP::query] 0 15 ]
+    }
+
+    ############################################################################    
+    # Set value of IP & UID to add to the I2U table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_ADD_I2U" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~ADD_I2U_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set add_I2U 1
+    set split_q [split [HTTP::query] "&"]
+    for {set i 0} {$i < [llength $split_q]} {incr i} {
+    set qip [lindex $split_q 0]
+    set quid [lindex $split_q 1]
+    }
+    }
+
+    # Set value of IP & UID to add to the U2I table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_ADD_U2I" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~ADD_U2I_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set add_U2I 1
+    set split_q [split [HTTP::query] "&"]
+    for {set i 0} {$i < [llength $split_q]} {incr i} {
+    set qip [lindex $split_q 0]
+    set quid [lindex $split_q 1]
+    }
+    }
+
+    ############################################################################
+    # Nudge URI Section
+    ############################################################################
+    # Set value of IP to nudge to the IP table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_NUDGE_IP" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~NUDG3_IP_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set nud_ip 1
+    set ruri_q [string range [HTTP::query] 0 17 ]
+    }
+
+    # Set value of IP to nudge to the UID table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_NUDGE_UID" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~NUDG3_UID_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set nud_uid 1
+    set ruri_q [string range [HTTP::query] 0 15 ]
+    } 
+
+    # Set value of IP to nudge to the URI table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_NUDGE_URI" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~NUDG3_URI_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set nud_uri 1
+    set ruri_q [string range [HTTP::query] 0 15 ]
+    } 
+
+    # Set value of IP to nudge to the WWW table based on query
+    if { ( $ruri equals "/XXX_BAIU_R8L_L1M1T3R_NUDGE_WWW" ) and ( [class match $tip equals XXX_LAN ] ) } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~NUDG3_WWW_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Add URI called Query: $ruri_q~,~"}
+    set nud_www 1
+    set ruri_q [string range [HTTP::query] 0 15 ]
+    } 
+
+    ############################################################################
+    # Process Section
+    ############################################################################
+    # Begin Table deletion processes
+    ############################################################################
+    # Used for IP Table deletion of entries
+    # Delete value extracted from query if delete URI is called
+    if { $del_ip == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_DROPTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Request: [string range $ruri_q 0 15 ] - dropping all IP elements for Request: [string range $ruri_q 0 17 ]~,~"}
+    # Delete item from table if IP request was made
+    table delete -subtable IPBanZ $ruri_q
+    table delete -subtable IPReqMon $ruri_q
+    table delete -subtable IPbCnt $ruri_q 
+    table delete -all -subtable I2U$ruri_q 
+    HTTP::respond 403 content {<html>IP Dropped from Ban and Monitor</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Delete entire table assuming -all was in query
+    if { $del_ip_all == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_DROPTBL_ALL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Request: [string range $ruri_q 0 4 ] - dropping IPBanZ,IPReqMon,IPbCnt ALL ELEMENTS~,~"}
+    # Delete item from table if IP request was made
+    table delete -all -subtable IPBanZ
+    table delete -all -subtable IPReqMon
+    table delete -all -subtable IPbCnt
+    HTTP::respond 403 content {<html>ALL IP BASED TRACKING ELEMENTS DROPPED</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for UID Table deletion of entries
+    # Delete value extracted from query if delete URI is called
+    if { $del_uid == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~UID_DROPTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~dropping all UID elements for Request: [string range $ruri_q 0 15 ]~,~"}
+    # Delete item from table if UID request was made
+    table delete -subtable UIDBanZ $ruri_q
+    table delete -subtable UIDReqMon $ruri_q
+    table delete -subtable UIDbCnt $ruri_q 
+    table delete -all -subtable U2I$ruri_q 
+    HTTP::respond 403 content {<html>UID Dropped from Ban and Monitor</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Delete entire table assuming -all was in query
+    if { $del_uid_all == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~UID_DROPTBL_ALL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Request: [string range $ruri_q 0 4 ] - dropping UIDBanZ,UIDReqMon,UIDbCnt ALL ELEMENTS~,~"}
+    # Delete item from table if UID request was made
+    table delete -all -subtable UIDBanZ
+    table delete -all -subtable UIDReqMon
+    table delete -all -subtable UIDbCnt
+    HTTP::respond 403 content {<html>ALL UID BASED TRACKING ELEMENTS DROPPED</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for URI Table deletion of entries
+    # Delete value extracted from query if delete URI is called
+    if { $del_uri == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~URI_DROPTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~dropping all URI elements for Request: [string range $ruri_q 0 15 ]~,~"}
+    # Delete item from table if URI request was made
+    table delete -subtable URIBanZ $ruri_q
+    table delete -subtable URIReqMon $ruri_q
+    table delete -subtable URIbCnt $ruri_q 
+    HTTP::respond 403 content {<html>IP Dropped from URI Ban and Monitor</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Delete entire table assuming -all was in query
+    if { $del_uri_all == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~URI_DROPTBL_ALL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Request: [string range $ruri_q 0 4 ] - dropping URIBanZ,URIReqMon,URIbCnt ALL ELEMENTS~,~"}
+    # Delete item from table if URI request was made
+    table delete -all -subtable URIBanZ
+    table delete -all -subtable URIReqMon
+    table delete -all -subtable URIbCnt
+    HTTP::respond 403 content {<html>ALL URI BASED TRACKING ELEMENTS DROPPED</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for WWW Table deletion of entries
+    # Delete value extracted from query if delete WWW is called
+    if { $del_www == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~WWW_DROPTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~dropping all WWW elements for Request: [string range $ruri_q 0 15 ]~,~"}
+    # Delete item from table if drop WWW request was made
+    table delete -subtable WWWBanZ $ruri_q
+    table delete -subtable WWWReqMon $ruri_q
+    table delete -subtable WWWbCnt $ruri_q 
+    HTTP::respond 403 content {<html>IP Dropped from WWW Ban and Monitor</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Delete entire table assuming -all was in query
+    if { $del_www_all == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~WWW_DROPTBL_ALL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Request: [string range $ruri_q 0 4 ] - dropping WWWBanZ,WWWReqMon,WWWbCnt ALL ELEMENTS~,~"}
+    # Delete item from table if WWW request was made
+    table delete -all -subtable WWWBanZ
+    table delete -all -subtable WWWReqMon
+    table delete -all -subtable WWWbCnt
+    HTTP::respond 403 content {<html>ALL WWW BASED TRACKING ELEMENTS DROPPED</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    ############################################################################
+    # Used for I2U Table deletion of entries
+    # Delete value extracted from query if delete URI is called
+    if { $del_I2U == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~I2U_DROPTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Dropping IP & UID to I2U Table: IP:$qip UID:quid~,~"}
+    # Delete item from table if URI request was made
+    table delete -subtable I2U$qip $quid
+    HTTP::respond 403 content {<html>IP & UID Dropped from I2U Table</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for U2I Table deletion of entries
+    # Delete value extracted from query if delete URI is called
+    if { $del_U2I == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~U2I_DROPTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Dropping UID & IP to U2I Table: UID:quid IP:$qip~,~"}
+    # Delete item from table if URI request was made
+    table delete -subtable U2I$quid $qip
+    HTTP::respond 403 content {<html>UID & IP Dropped from U2I Table</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    ############################################################################
+    # Begin Table addition processes
+    ############################################################################    
+    # Used for IP Table Addition of entries
+    # Add value extracted from query if add IP is called
+    if { $add_ip == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_ADDTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Adding IP to Ban Table with Request: [string range $ruri_q 0 17 ]~,~"}
+#    ## Set UID Ban Count to 1
+#    #table set -subtable IPBanZ $ruri_q 1 $StdB $StdB
+#    #table set -subtable IPbCnt $ruri_q 1 $StdB $StdB
+    # Set IP Request Counter over Max to block on next request
+    table set -subtable IPReqMon $ruri_q $KillReq 129600 129600
+    HTTP::respond 403 content {<html>IP Will Be Banned</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for UID Table deletion of entries
+    # Add value extracted from query if add UID is called
+    if { $add_uid == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~UID_ADDTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Adding UID to Ban Table with Request: [string range $ruri_q 0 15 ]~,~"}
+#    ## Set UID Ban Count to 1
+#    #table set -subtable UIDBanZ $ruri_q 1 $HalfB $HalfB
+#    #table set -subtable UIDbCnt $ruri_q 1 $HalfB $HalfB
+    # Set UID Request Counter over Max to block on next request
+    table set -subtable UIDReqMon $ruri_q $KillReq 129600 129600
+    HTTP::respond 403 content {<html>UID Will Be Banned</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for URI Table deletion of entries
+    # Add value extracted from query if add URI is called
+    if { $add_uri == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~URI_ADDTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Adding IP to URI Ban Table with Request: [string range $ruri_q 0 15 ]~,~"}
+#    ## Set URI Ban Count to 1
+#    #table set -subtable URIBanZ $ruri_q 1 $StdB $StdB
+#    #table set -subtable URIbCnt $ruri_q 1 $StdB $StdB
+    # Set URI Request Counter over Max to block on next request
+    table set -subtable URIReqMon $ruri_q $KillReq 129600 129600
+    HTTP::respond 403 content {<html>URI Will Be Banned</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for WWW Table deletion of entries
+    # Add value extracted from query if add WWW is called
+    if { $add_www == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~WWW_ADDTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Adding IP to WWW Ban Table with Request: [string range $ruri_q 0 15 ]~,~"}
+#    ## Set URI Ban Count to 1
+#    #table set -subtable WWWBanZ $ruri_q 1 $WWWB $WWWB
+#    #table set -subtable WWWbCnt $ruri_q 1 $WWWB $WWWB
+    # Set URI Request Counter over Max to block on next request
+    table set -subtable WWWReqMon $ruri_q $KillReq 129600 129600
+    HTTP::respond 403 content {<html>WWW Will Be Banned</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    ############################################################################    
+    # Used for I2U Table addition of entries
+    # Add value extracted from query if add URI is called
+    if { $add_I2U == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~I2U_ADDTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Adding IP & UID to I2U Table: IP:$qip UID:quid~,~"}
+    # Set IP Request Counter over Max to block on next request
+    table set -subtable I2U$qip $quid 1 129600 129600
+    HTTP::respond 403 content {<html>IP Will Be Added to I2U Table</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for U2I Table addition of entries
+    # Add value extracted from query if add URI is called
+    if { $add_U2I == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~U2I_ADDTBL_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Adding UID & IP to U2I Table: UID:quid IP:$qip~,~"}
+    # Set UID Request Counter over Max to block on next request
+    table set -subtable U2I$quid $qip 1 129600 129600
+    HTTP::respond 403 content {<html>UID Will Be Added to U2I Table</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    ############################################################################
+    # Begin Table nudging processes
+    ############################################################################    
+    # Used for IP Table nudging of entries
+    # Add value extracted from query if add URI is called
+    if { $nud_ip == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_NUDGE_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Nudging IP: $nud_ip with ReqCnt:$IUNudReq~,~"}
+    # Increment IP Request Counter per nudge value
+    table incr -notouch -subtable IPReqMon $ruri_q $IUNudReq
+    HTTP::respond 403 content {<html>IP Will Be Nudged</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for UID Table nudging of entries
+    # Add value extracted from query if add URI is called
+    if { $nud_uid == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~UID_NUDGE_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Nudging UID: $nud_uid with ReqCnt:$IUNudReq~,~"}
+    # Increment UID Request Counter per nudge value
+    table incr -notouch -subtable UIDReqMon $ruri_q $IUNudReq 
+    HTTP::respond 403 content {<html>UID Will Be Nudged</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for URI Table nudging of entries
+    # Add value extracted from query if add URI is called
+    if { $nud_uri == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~URI_NUDGE_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Nudging IP: $nud_uri with ReqCnt:$URINudReq~,~"}
+    # Increment IP Request Counter per nudge value
+    table incr -notouch -subtable URIReqMon $ruri_q $URINudReq
+    HTTP::respond 403 content {<html>URI IP Will Be Nudged</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+    # Used for WWW Table nudging of entries
+    # Add value extracted from query if add WWW is called
+    if { $nud_www == 1 } {
+        if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~WWW_NUDGE_1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Nudging IP: $nud_www with ReqCnt:$WWWNudReq~,~"}
+    # Increment IP Request Counter per nudge value
+    table incr -notouch -subtable WWWReqMon $ruri_q $WWWNudReq
+    HTTP::respond 403 content {<html>WWW IP Will Be Nudged</html>} noserver
+    # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+    reject
+    }
+
+}

@@ -1,0 +1,81 @@
+# This iRule is a universal rule that applies to all configurations.
+# It will pull the true client IP value from the X Forwarded For header values.
+# and then inject it into the headers. 
+# This iRule should be placed first before all other iRules to ensure the proper IP is
+# used when taking action. This iRule also ensures the localhost IP will not be blocked.
+#
+# Dependencies: NONE iRules / NONE DataGroups
+
+when CLIENT_ACCEPTED priority 110 {
+    # Null out all universal variables
+    if { [ info exists tip ] } {
+    return
+    }
+    set tip [IP::client_addr]
+    set allowed ""
+    set b_log "0"
+    set dst_port ""
+    set r8lport ""
+    set dns_c ""
+    set dns_t ""
+    set dns_q ""
+    set IPreqCnt ""
+    set IPdreqCnt ""
+    set IPbCnt "" 
+    set IPdreqCnt ""
+    set I2PCnt ""
+    set IPdreqCnt ""
+    set P2ICnt ""
+    set PortreqCnt ""
+    set DNSbCnt ""
+    set DNSreqCnt ""
+    set geo_s [whereis $tip abbrev ]
+    set geo_c [whereis $tip country]
+    set geo_i [whereis $tip isp]
+    set geo_o [whereis $tip org]
+    set geo_la [whereis $tip latitude]
+    set geo_lo [whereis $tip longitude]
+    # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+    set BAIU_LOG_LVL 1
+
+        if { $BAIU_LOG_LVL >= 3 } {log local0. "DEBUG_CHECK_VALUES:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Dst_Port: [UDP::local_port clientside]~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~"}
+}
+
+when DNS_REQUEST priority 111 {
+    # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+    set BAIU_LOG_LVL 1
+      if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~DEBUG1:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Dst_Port: [UDP::local_port clientside]~,~"}
+
+    # Null out all universal variables
+    if { [ info exists tip ] } {
+    return
+    }
+    set tip [IP::client_addr]
+    set allowed ""
+    set b_log "0"
+    set dst_port ""
+    set r8lport ""
+    set dns_c ""
+    set dns_t ""
+    set dns_q ""
+    set IPreqCnt ""
+    set IPdreqCnt ""
+    set IPbCnt "" 
+    set IPdreqCnt ""
+    set I2PCnt ""
+    set IPdreqCnt ""
+    set P2ICnt ""
+    set PortreqCnt ""
+    set DNSbCnt ""
+    set DNSreqCnt ""
+    set geo_s [whereis $tip abbrev ]
+    set geo_c [whereis $tip country]
+    set geo_i [whereis $tip isp]
+    set geo_o [whereis $tip org]
+    set geo_la [whereis $tip latitude]
+    set geo_lo [whereis $tip longitude]
+
+    # Debug 
+    if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~DEBUG2:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Dst_Port: [UDP::local_port clientside]~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~"}
+
+}

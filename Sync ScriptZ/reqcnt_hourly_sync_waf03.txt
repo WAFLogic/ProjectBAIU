@@ -1,0 +1,50 @@
+#!/bin/bash
+# For WAF03
+
+#rm /var/log/sync/logs/req_hour/hourlyreqip
+#rm /var/log/sync/logs/req_hour/hourlyrequid
+rm /var/log/sync/logs/req_hour/hourlyrequri
+#rm /var/log/sync/logs/req_hour/reqhrips
+#rm /var/log/sync/logs/req_hour/reqhruids
+rm /var/log/sync/logs/req_hour/reqhruris
+#rm /var/log/sync/logs/req_hour/allreqhrips
+#rm /var/log/sync/logs/req_hour/allreqhruids
+rm /var/log/sync/logs/req_hour/allreqhruris
+#for ai in /var/log/sync/logs/req_hour/addreqhrip*; do rm $ai; done
+#for au in /var/log/sync/logs/req_hour/addreqhruid*; do rm $au; done
+for ar in /var/log/sync/logs/req_hour/addreqhruri*; do rm $ar; done
+
+hrago=$(date --date="-1 hours" "+%b %_d %H")
+now=$(date "+%b %_d %H")
+
+#cat /var/log/ltm |grep "$hrago:"| egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_hour/hourlyreqip
+#cat /var/log/ltm |grep "$hrago:"| egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_hour/hourlyrequid
+cat /var/log/ltm |grep "$hrago:"| egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_hour/hourlyrequri
+
+#cat /var/log/sync/logs/req_hour/hourlyreqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_hour/allreqhrips
+#cat /var/log/sync/logs/req_hour/hourlyrequid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_hour/allreqhruids
+cat /var/log/sync/logs/req_hour/hourlyrequri | egrep 'MonURI: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_hour/allreqhruris
+
+#sort /var/log/sync/logs/req_hour/allreqhrips | uniq > /var/log/sync/logs/req_hour/reqhrips
+#sort /var/log/sync/logs/req_hour/allreqhruids | uniq > /var/log/sync/logs/req_hour/reqhruids
+sort /var/log/sync/logs/req_hour/allreqhruris | uniq > /var/log/sync/logs/req_hour/reqhruris
+
+#sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__NUDG3_IP?b_#g' /var/log/sync/logs/req_hour/reqhrips
+#sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__NUDG3_UID?b_#g' /var/log/sync/logs/req_hour/reqhruids
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__NUDG3_URI?b_#g' /var/log/sync/logs/req_hour/reqhruris
+
+#sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/req_hour/reqhrips
+#sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/req_hour/reqhruids
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/req_hour/reqhruris
+
+#split -a 3 -d -l 1 /var/log/sync/logs/req_hour/reqhrips /var/log/sync/logs/req_hour/addreqhrip
+#split -a 3 -d -l 1 /var/log/sync/logs/req_hour/reqhruids /var/log/sync/logs/req_hour/addreqhruid
+split -a 3 -d -l 1 /var/log/sync/logs/req_hour/reqhruris /var/log/sync/logs/req_hour/addreqhruri
+
+#perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.23\n\nEOF\n\n";}' /var/log/sync/logs/req_hour/addreqhrip*
+#perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.23\n\nEOF\n\n";}' /var/log/sync/logs/req_hour/addreqhruid*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.23\n\nEOF\n\n";}' /var/log/sync/logs/req_hour/addreqhruri*
+
+#for ai in /var/log/sync/logs/req_hour/addreqhrip*; do nc 192.168.65.24 80 < $ai; done
+#for au in /var/log/sync/logs/req_hour/addreqhruid*; do nc 192.168.65.24 80 < $au; done
+for ar in /var/log/sync/logs/req_hour/addreqhruri*; do nc 192.168.65.24 80 < $ar; done

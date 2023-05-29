@@ -1,0 +1,52 @@
+# This is to extract information to rate limit against such as DNS queries
+# Dependencies: TIP_Univ iRule / R8L_BAD_IP, R8L_GOOD_IP, R8L_PORTS DataGroup
+
+
+when CLIENT_ACCEPTED priority 130 {
+######TroubleShooting Headers
+###### log local0. "TIP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - True-Client-IP Header value: [HTTP::header True-Client-IP]"
+
+    # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+    set BAIU_LOG_LVL 1
+    # Set user cookie as SID/JSESSIONID
+
+    if {$tip ne ""} {
+    # Only process matched ports & allow specific IPs
+    if { ( [class match $tip equals R8L_GOOD_IP ] ) } {
+        if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port IP Whitelisted~,~"}
+    return
+    }
+    if { ( not [class match $dst_port equals R8L_PORTS ] ) } {
+        if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NOMATCH_DST_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port DST_PORT not rate limited~,~"}
+    return
+    }
+    if { [class match $tip equals R8L_BAD_IP ] } {
+        if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port IP in BAD group~,~"}
+    }
+
+    }
+}
+
+when SERVER_CONNECTED priority 131 {
+    # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+    set BAIU_LOG_LVL 1
+    # Set user cookie as SID/JSESSIONID
+
+    if {$tip ne ""} {
+    set dst_port TCP[TCP::local_port clientside]
+    # Only process matched ports & allow specific IPs
+    if { ( [class match $tip equals R8L_GOOD_IP ] ) } {
+        if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port IP Whitelisted~,~"}
+    return
+    }
+    if { ( not [class match $dst_port equals R8L_PORTS ] ) } {
+        if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NOMATCH_DST_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port DST_PORT not rate limited~,~"}
+    return
+    }
+    if { [class match $tip equals R8L_BAD_IP ] } {
+        if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port IP in BAD group~,~"}
+    }
+            if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~STAGE_3_PASS~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~"}
+
+    }
+}

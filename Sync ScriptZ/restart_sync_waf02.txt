@@ -1,0 +1,114 @@
+
+#!/bin/bash
+# For WAF02
+
+rm /var/log/sync/logs/req_hour/hourlyreqip
+rm /var/log/sync/logs/req_hour/hourlyrequid
+rm /var/log/sync/logs/req_hour/reqhrips
+rm /var/log/sync/logs/req_hour/reqhruids
+rm /var/log/sync/logs/req_hour/allreqhrips
+rm /var/log/sync/logs/req_hour/allreqhruids
+for ai in /var/log/sync/logs/req_hour/addreqhrip*; do rm $ai; done
+for au in /var/log/sync/logs/req_hour/addreqhruid*; do rm $au; done
+
+
+cat /var/log/ltm | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_hour/hourlyreqip
+cat /var/log/ltm | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_hour/hourlyrequid
+
+cat /var/log/sync/logs/req_hour/hourlyreqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_hour/allreqhrips
+cat /var/log/sync/logs/req_hour/hourlyrequid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_hour/allreqhruids
+
+sort /var/log/sync/logs/req_hour/allreqhrips | uniq > /var/log/sync/logs/req_hour/reqhrips
+sort /var/log/sync/logs/req_hour/allreqhruids | uniq > /var/log/sync/logs/req_hour/reqhruids
+
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__NUDG3_IP?b_#g' /var/log/sync/logs/req_hour/reqhrips
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__NUDG3_UID?b_#g' /var/log/sync/logs/req_hour/reqhruids
+
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/req_hour/reqhrips
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/req_hour/reqhruids
+
+split -a 3 -d -l 1 /var/log/sync/logs/req_hour/reqhrips /var/log/sync/logs/req_hour/addreqhrip
+split -a 3 -d -l 1 /var/log/sync/logs/req_hour/reqhruids /var/log/sync/logs/req_hour/addreqhruid
+
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/req_hour/addreqhrip*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/req_hour/addreqhruid*
+
+for ai in /var/log/sync/logs/req_hour/addreqhrip*; do nc 192.168.65.23 80 < $ai; done
+for au in /var/log/sync/logs/req_hour/addreqhruid*; do nc 192.168.65.23 80 < $au; done
+
+rm /var/log/sync/logs/roll_hrhourlyroll
+
+rm /var/log/sync/logs/roll_hr/rolledips
+
+for ri in /var/log/sync/logs/roll_hr/addip*; do rm $ri; done
+for dallb in /var/log/sync/logs/roll_hr/allrolled*; do rm $dallb; done
+
+cat /var/log/ltm | egrep 'ROLLING_BAN' >>/var/log/sync/logs/roll_hr/hourlyroll
+
+cat /var/log/sync/logs/roll_hr/hourlyroll | egrep 'b_ip: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/roll_hr/allrolledips
+
+sort /var/log/sync/logs/roll_hr/allrolledips | uniq > /var/log/sync/logs/roll_hr/rolledips
+
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_IP?b_#g' /var/log/sync/logs/roll_hr/rolledips
+
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/roll_hr/rolledips
+
+split -d -l 1 /var/log/sync/logs/roll_hr/rolledips /var/log/sync/logs/roll_hr/addip
+
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/roll_hr/addip*
+
+for ri in /var/log/sync/logs/roll_hr/addip*; do nc 192.168.65.23 80 < $ri; done
+
+rm /var/log/sync/logs/hourlyban
+rm /var/log/sync/logs/hourlydropip
+rm /var/log/sync/logs/hourlydropuid
+rm /var/log/sync/logs/bannedips
+rm /var/log/sync/logs/banneduids
+rm /var/log/sync/logs/droppedips
+rm /var/log/sync/logs/droppeduids
+for ai in /var/log/sync/logs/addip*; do rm $ai; done
+for au in /var/log/sync/logs/adduid*; do rm $au; done
+for di in /var/log/sync/logs/dropip*; do rm $di; done
+for du in /var/log/sync/logs/dropuid*; do rm $du; done
+for dalld in /var/log/sync/logs/alldropped*; do rm $dalld; done
+for dallb in /var/log/sync/logs/allbanned*; do rm $dallb; done
+
+cat /var/log/ltm | egrep 'BANNED_' >>/var/log/sync/logs/hourlyban
+cat /var/log/ltm | egrep '_Dr0p_IP' >>/var/log/sync/logs/hourlydropip
+cat /var/log/ltm | egrep '_Dr0p_UID' >>/var/log/sync/logs/hourlydropuid
+
+cat /var/log/sync/logs/hourlyban | egrep 'b_ip: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/allbannedips
+cat /var/log/sync/logs/hourlyban | egrep 'b_uid: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/allbanneduids
+cat /var/log/sync/logs/hourlydropip | egrep 'b_.* ' -o | awk -F ' ' '{print $1}' >>/var/log/sync/logs/alldroppedips
+cat /var/log/sync/logs/hourlydropuid | egrep 'b_.* ' -o | awk -F ' ' '{print $1}' >>/var/log/sync/logs/alldroppeduids
+
+sort /var/log/sync/logs/allbannedips | uniq > /var/log/sync/logs/bannedips
+sort /var/log/sync/logs/allbanneduids | uniq > /var/log/sync/logs/banneduids
+sort /var/log/sync/logs/alldroppedips | uniq > /var/log/sync/logs/droppedips
+sort /var/log/sync/logs/alldroppeduids | uniq > /var/log/sync/logs/droppeduids
+
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_IP?b_#g' /var/log/sync/logs/bannedips
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_UID?b_#g' /var/log/sync/logs/banneduids
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__Dr0p_IP?b_#g' /var/log/sync/logs/droppedips
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__Dr0p_UID?b_#g' /var/log/sync/logs/droppeduids
+
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/bannedips
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/banneduids
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/droppedips
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/droppeduids
+
+split -d -l 1 /var/log/sync/logs/bannedips /var/log/sync/logs/addip
+split -d -l 1 /var/log/sync/logs/banneduids /var/log/sync/logs/adduid
+split -d -l 1 /var/log/sync/logs/droppedips /var/log/sync/logs/dropip
+split -d -l 1 /var/log/sync/logs/droppeduids /var/log/sync/logs/dropuid
+
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/addip*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/adduid*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/dropip*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/dropuid*
+
+for ai in /var/log/sync/logs/addip*; do nc 192.168.65.23 80 < $ai; done
+for au in /var/log/sync/logs/adduid*; do nc 192.168.65.23 80 < $au; done
+for di in /var/log/sync/logs/dropip*; do nc 192.168.65.23 80 < $di; done
+for du in /var/log/sync/logs/dropuid*; do nc 192.168.65.23 80 < $du; done
+

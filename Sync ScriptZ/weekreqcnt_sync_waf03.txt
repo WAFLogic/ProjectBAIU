@@ -1,0 +1,101 @@
+#!/bin/bash
+# For WAF03
+
+for di in /var/log/sync/logs/req_week/day*ips; do rm $di; done
+for du in /var/log/sync/logs/req_week/day*uids; do rm $du; done
+for dr in /var/log/sync/logs/req_week/day*uris; do rm $dr; done
+for adi in /var/log/sync/logs/req_week/day*reqip*; do rm $adi; done
+for adu in /var/log/sync/logs/req_week/day*requid*; do rm $adu; done
+for adr in /var/log/sync/logs/req_week/day*requri*; do rm $adr; done
+for dalldr in /var/log/sync/logs/req_week/allreqday*; do rm $dalldr; done
+
+hrago=$(date --date="-1 hours" "+%b %_d %H")
+now=$(date "+%b %_d %H")
+
+zcat /var/log/ltm.1.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day1reqip
+zcat /var/log/ltm.2.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day2reqip
+zcat /var/log/ltm.3.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day3reqip
+zcat /var/log/ltm.4.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day4reqip
+zcat /var/log/ltm.5.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day5reqip
+zcat /var/log/ltm.6.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day6reqip
+zcat /var/log/ltm.7.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day7reqip
+zcat /var/log/ltm.8.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day8reqip
+zcat /var/log/ltm.9.gz | egrep 'IPReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day9reqip
+zcat /var/log/ltm.1.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day1requid
+zcat /var/log/ltm.2.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day2requid
+zcat /var/log/ltm.3.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day3requid
+zcat /var/log/ltm.4.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day4requid
+zcat /var/log/ltm.5.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day5requid
+zcat /var/log/ltm.6.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day6requid
+zcat /var/log/ltm.7.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day7requid
+zcat /var/log/ltm.8.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day8requid
+zcat /var/log/ltm.9.gz | egrep 'UIDReqCnt:[2-3][1-2]' >>/var/log/sync/logs/req_week/day9requid
+zcat /var/log/ltm.1.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day1requri
+zcat /var/log/ltm.2.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day2requri
+zcat /var/log/ltm.3.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day3requri
+zcat /var/log/ltm.4.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day4requri
+zcat /var/log/ltm.5.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day5requri
+zcat /var/log/ltm.6.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day6requri
+zcat /var/log/ltm.7.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day7requri
+zcat /var/log/ltm.8.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day8requri
+zcat /var/log/ltm.9.gz | egrep 'URIReqCnt:[1-9]00' >>/var/log/sync/logs/req_week/day9requri
+
+cat /var/log/sync/logs/req_week/day1reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday1ips
+cat /var/log/sync/logs/req_week/day2reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday2ips
+cat /var/log/sync/logs/req_week/day3reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday3ips
+cat /var/log/sync/logs/req_week/day4reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday4ips
+cat /var/log/sync/logs/req_week/day5reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday5ips
+cat /var/log/sync/logs/req_week/day6reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday6ips
+cat /var/log/sync/logs/req_week/day7reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday7ips
+cat /var/log/sync/logs/req_week/day8reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday8ips
+cat /var/log/sync/logs/req_week/day9reqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday9ips
+cat /var/log/sync/logs/req_week/day1requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday1uids
+cat /var/log/sync/logs/req_week/day2requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday2uids
+cat /var/log/sync/logs/req_week/day3requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday3uids
+cat /var/log/sync/logs/req_week/day4requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday4uids
+cat /var/log/sync/logs/req_week/day5requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday5uids
+cat /var/log/sync/logs/req_week/day6requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday6uids
+cat /var/log/sync/logs/req_week/day7requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday7uids
+cat /var/log/sync/logs/req_week/day8requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday8uids
+cat /var/log/sync/logs/req_week/day9requid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday9uids
+cat /var/log/sync/logs/req_week/day1requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday1uris
+cat /var/log/sync/logs/req_week/day2requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday2uris
+cat /var/log/sync/logs/req_week/day3requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday3uris
+cat /var/log/sync/logs/req_week/day4requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday4uris
+cat /var/log/sync/logs/req_week/day5requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday5uris
+cat /var/log/sync/logs/req_week/day6requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday6uris
+cat /var/log/sync/logs/req_week/day7requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday7uris
+cat /var/log/sync/logs/req_week/day8requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday8uris
+cat /var/log/sync/logs/req_week/day9requri | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_week/allreqday9uris
+
+sort /var/log/sync/logs/req_week/allreqday1ips > /var/log/sync/logs/req_week/day1ips
+sort /var/log/sync/logs/req_week/allreqday2ips > /var/log/sync/logs/req_week/day2ips
+sort /var/log/sync/logs/req_week/allreqday3ips > /var/log/sync/logs/req_week/day3ips
+sort /var/log/sync/logs/req_week/allreqday4ips > /var/log/sync/logs/req_week/day4ips
+sort /var/log/sync/logs/req_week/allreqday5ips > /var/log/sync/logs/req_week/day5ips
+sort /var/log/sync/logs/req_week/allreqday6ips > /var/log/sync/logs/req_week/day6ips
+sort /var/log/sync/logs/req_week/allreqday7ips > /var/log/sync/logs/req_week/day7ips
+sort /var/log/sync/logs/req_week/allreqday8ips > /var/log/sync/logs/req_week/day8ips
+sort /var/log/sync/logs/req_week/allreqday9ips > /var/log/sync/logs/req_week/day9ips
+sort /var/log/sync/logs/req_week/allreqday1uids > /var/log/sync/logs/req_week/day1uids
+sort /var/log/sync/logs/req_week/allreqday2uids > /var/log/sync/logs/req_week/day2uids
+sort /var/log/sync/logs/req_week/allreqday3uids > /var/log/sync/logs/req_week/day3uids
+sort /var/log/sync/logs/req_week/allreqday4uids > /var/log/sync/logs/req_week/day4uids
+sort /var/log/sync/logs/req_week/allreqday5uids > /var/log/sync/logs/req_week/day5uids
+sort /var/log/sync/logs/req_week/allreqday6uids > /var/log/sync/logs/req_week/day6uids
+sort /var/log/sync/logs/req_week/allreqday7uids > /var/log/sync/logs/req_week/day7uids
+sort /var/log/sync/logs/req_week/allreqday8uids > /var/log/sync/logs/req_week/day8uids
+sort /var/log/sync/logs/req_week/allreqday9uids > /var/log/sync/logs/req_week/day9uids
+sort /var/log/sync/logs/req_week/allreqday1uris > /var/log/sync/logs/req_week/day1uris
+sort /var/log/sync/logs/req_week/allreqday2uris > /var/log/sync/logs/req_week/day2uris
+sort /var/log/sync/logs/req_week/allreqday3uris > /var/log/sync/logs/req_week/day3uris
+sort /var/log/sync/logs/req_week/allreqday4uris > /var/log/sync/logs/req_week/day4uris
+sort /var/log/sync/logs/req_week/allreqday5uris > /var/log/sync/logs/req_week/day5uris
+sort /var/log/sync/logs/req_week/allreqday6uris > /var/log/sync/logs/req_week/day6uris
+sort /var/log/sync/logs/req_week/allreqday7uris > /var/log/sync/logs/req_week/day7uris
+sort /var/log/sync/logs/req_week/allreqday8uris > /var/log/sync/logs/req_week/day8uris
+sort /var/log/sync/logs/req_week/allreqday9uris > /var/log/sync/logs/req_week/day9uris
+
+for adri in /var/log/sync/logs/req_week/day*ips; do uniq -c $adri >> /var/log/sync/logs/req_week/9dayreqips; done
+for adru in /var/log/sync/logs/req_week/day*uids; do uniq -c $adru >> /var/log/sync/logs/req_week/9dayrequids; done
+for adrr in /var/log/sync/logs/req_week/day*uris; do uniq -c $adrr >> /var/log/sync/logs/req_week/9dayrequris; done

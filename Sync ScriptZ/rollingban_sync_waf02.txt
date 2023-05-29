@@ -1,0 +1,50 @@
+#!/bin/bash
+# For WAF02
+
+rm /var/log/sync/logs/roll_hr/hourlyrollip
+rm /var/log/sync/logs/roll_hr/hourlyrolluid
+rm /var/log/sync/logs/roll_hr/hourlyrolluri
+
+rm /var/log/sync/logs/roll_hr/rolledips
+rm /var/log/sync/logs/roll_hr/rolleduids
+rm /var/log/sync/logs/roll_hr/rolleduris
+
+for ri in /var/log/sync/logs/roll_hr/addip*; do rm $ri; done
+for ru in /var/log/sync/logs/roll_hr/adduid*; do rm $ru; done
+for rr in /var/log/sync/logs/roll_hr/adduri*; do rm $rr; done
+for dallb in /var/log/sync/logs/roll_hr/allrolled*; do rm $dallb; done
+
+hrago=$(date --date="-1 hours" "+%b %_d %H")
+now=$(date "+%b %_d %H")
+
+cat /var/log/ltm |grep "$hrago:"| egrep 'IP_ROLLING_BAN' >>/var/log/sync/logs/roll_hr/hourlyrollip
+cat /var/log/ltm |grep "$hrago:"| egrep 'UID_ROLLING_BAN' >>/var/log/sync/logs/roll_hr/hourlyrolluid
+cat /var/log/ltm |grep "$hrago:"| egrep 'URI_ROLLING_BAN' >>/var/log/sync/logs/roll_hr/hourlyrolluri
+
+cat /var/log/sync/logs/roll_hr/hourlyrollip | egrep 'b_ip: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/roll_hr/allrolledips
+cat /var/log/sync/logs/roll_hr/hourlyrolluid | egrep 'b_uid: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/roll_hr/allrolleduids
+cat /var/log/sync/logs/roll_hr/hourlyrolluri | egrep 'b_ip: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/roll_hr/allrolleduris
+
+sort /var/log/sync/logs/roll_hr/allrolledips | uniq > /var/log/sync/logs/roll_hr/rolledips
+sort /var/log/sync/logs/roll_hr/allrolleduids | uniq > /var/log/sync/logs/roll_hr/rolleduids
+sort /var/log/sync/logs/roll_hr/allrolleduris | uniq > /var/log/sync/logs/roll_hr/rolleduris
+
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_IP?b_#g' /var/log/sync/logs/roll_hr/rolledips
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_UID?b_#g' /var/log/sync/logs/roll_hr/rolleduids
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_URI?b_#g' /var/log/sync/logs/roll_hr/rolleduris
+
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/roll_hr/rolledips
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/roll_hr/rolleduids
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/roll_hr/rolleduris
+
+split -d -l 1 /var/log/sync/logs/roll_hr/rolledips /var/log/sync/logs/roll_hr/addip
+split -d -l 1 /var/log/sync/logs/roll_hr/rolleduids /var/log/sync/logs/roll_hr/adduid
+split -d -l 1 /var/log/sync/logs/roll_hr/rolleduris /var/log/sync/logs/roll_hr/adduri
+
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/roll_hr/addip*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/roll_hr/adduid*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/roll_hr/adduri*
+
+for ri in /var/log/sync/logs/roll_hr/addip*; do nc 192.168.65.23 80 < $ri; done
+for ru in /var/log/sync/logs/roll_hr/adduid*; do nc 192.168.65.23 80 < $ru; done
+for rr in /var/log/sync/logs/roll_hr/adduri*; do nc 192.168.65.23 80 < $rr; done

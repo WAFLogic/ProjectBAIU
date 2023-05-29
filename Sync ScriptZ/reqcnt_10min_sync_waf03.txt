@@ -1,0 +1,39 @@
+#!/bin/bash
+# For WAF03
+
+rm /var/log/sync/logs/req_tenmin/tenminreqip
+rm /var/log/sync/logs/req_tenmin/tenminrequid
+rm /var/log/sync/logs/req_tenmin/reqtenminips
+rm /var/log/sync/logs/req_tenmin/reqtenminuids
+rm /var/log/sync/logs/req_tenmin/allreqtenminips
+rm /var/log/sync/logs/req_tenmin/allreqtenminuids
+for tmai in /var/log/sync/logs/req_tenmin/addreqtenminip*; do rm $tmai; done
+for tmau in /var/log/sync/logs/req_tenmin/addreqtenminuid*; do rm $tmau; done
+
+hrago=$(date --date="-1 hours" "+%b %_d %H")
+now=$(date "+%b %_d %H")
+tenago=$(date --date="-10 minutes" "+%b %_d %H:%M")
+
+cat /var/log/ltm |grep "${tenago%?}"| egrep 'IPReqCnt:[2-3][12]' >>/var/log/sync/logs/req_tenmin/tenminreqip
+cat /var/log/ltm |grep "${tenago%?}"| egrep 'UIDReqCnt:[2-3][12]' >>/var/log/sync/logs/req_tenmin/tenminrequid
+
+cat /var/log/sync/logs/req_tenmin/tenminreqip | egrep 'MonIP: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_tenmin/allreqtenminips
+cat /var/log/sync/logs/req_tenmin/tenminrequid | egrep 'MonUID: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/req_tenmin/allreqtenminuids
+
+sort /var/log/sync/logs/req_tenmin/allreqtenminips | uniq > /var/log/sync/logs/req_tenmin/reqtenminips
+sort /var/log/sync/logs/req_tenmin/allreqtenminuids | uniq > /var/log/sync/logs/req_tenmin/reqtenminuids
+
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__NUDG3_IP?b_#g' /var/log/sync/logs/req_tenmin/reqtenminips
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__NUDG3_UID?b_#g' /var/log/sync/logs/req_tenmin/reqtenminuids
+
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/req_tenmin/reqtenminips
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/req_tenmin/reqtenminuids
+
+split -a 3 -d -l 1 /var/log/sync/logs/req_tenmin/reqtenminips /var/log/sync/logs/req_tenmin/addreqtenminip
+split -a 3 -d -l 1 /var/log/sync/logs/req_tenmin/reqtenminuids /var/log/sync/logs/req_tenmin/addreqtenminuid
+
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.23\n\nEOF\n\n";}' /var/log/sync/logs/req_tenmin/addreqtenminip*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.23\n\nEOF\n\n";}' /var/log/sync/logs/req_tenmin/addreqtenminuid*
+
+for tmai in /var/log/sync/logs/req_tenmin/addreqtenminip*; do nc 192.168.65.24 80 < $tmai; done
+for tmau in /var/log/sync/logs/req_tenmin/addreqtenminuid*; do nc 192.168.65.24 80 < $tmau; done

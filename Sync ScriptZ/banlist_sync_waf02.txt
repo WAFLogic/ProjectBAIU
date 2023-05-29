@@ -1,0 +1,43 @@
+
+cat /var/log/sync/logs/banned/hourlybanip | egrep 'b_ip: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/banned/allbannedips
+cat /var/log/sync/logs/banned/hourlybanuid | egrep 'b_uid: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/banned/allbanneduids
+cat /var/log/sync/logs/banned/hourlybanuri | egrep 'b_ip: b_.* ' -o | awk -F ' ' '{print $2}' >>/var/log/sync/logs/banned/allbanneduris
+cat /var/log/sync/logs/banned/hourlydropip | egrep 'b_.* ' -o | awk -F ' ' '{print $1}' >>/var/log/sync/logs/banned/alldroppedips
+cat /var/log/sync/logs/banned/hourlydropuid | egrep 'b_.* ' -o | awk -F ' ' '{print $1}' >>/var/log/sync/logs/banned/alldroppeduids
+
+sort /var/log/sync/logs/banned/allbannedips | uniq > /var/log/sync/logs/banned/bannedips
+sort /var/log/sync/logs/banned/allbanneduids | uniq > /var/log/sync/logs/banned/banneduids
+sort /var/log/sync/logs/banned/allbanneduris | uniq > /var/log/sync/logs/banned/banneduris
+sort /var/log/sync/logs/banned/alldroppedips | uniq > /var/log/sync/logs/banned/droppedips
+sort /var/log/sync/logs/banned/alldroppeduids | uniq > /var/log/sync/logs/banned/droppeduids
+
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_IP?b_#g' /var/log/sync/logs/banned/bannedips
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_UID?b_#g' /var/log/sync/logs/banned/banneduids
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__4DD_URI?b_#g' /var/log/sync/logs/banned/banneduris
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__Dr0p_IP?b_#g' /var/log/sync/logs/banned/droppedips
+sed -i 's#b_#GET /REPLACE_WITH_YOUR_SECRET_URI_FROM_050_CnC_iRule__Dr0p_UID?b_#g' /var/log/sync/logs/banned/droppeduids
+
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/banned/bannedips
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/banned/banneduids
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/banned/banneduris
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/banned/droppedips
+sed  -e 's#$# HTTP/1.1#' -i /var/log/sync/logs/banned/droppeduids
+
+split -d -l 1 /var/log/sync/logs/banned/bannedips /var/log/sync/logs/banned/addip
+split -d -l 1 /var/log/sync/logs/banned/banneduids /var/log/sync/logs/banned/adduid
+split -d -l 1 /var/log/sync/logs/banned/banneduris /var/log/sync/logs/banned/adduri
+split -d -l 1 /var/log/sync/logs/banned/droppedips /var/log/sync/logs/banned/dropip
+split -d -l 1 /var/log/sync/logs/banned/droppeduids /var/log/sync/logs/banned/dropuid
+
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/banned/addip*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/banned/adduid*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/banned/adduri*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/banned/dropip*
+perl -i -e 'while(<>){print $_."Host: m.choicehotels.com\nUser-Agent: Mozilla/5.0\nWAF-App: 172.20.0.53-80\nTrue-Client-IP: 192.168.65.24\n\nEOF\n\n";}' /var/log/sync/logs/banned/dropuid*
+
+for ai in /var/log/sync/logs/banned/addip*; do nc 192.168.65.23 80 < $ai; done
+for au in /var/log/sync/logs/banned/adduid*; do nc 192.168.65.23 80 < $au; done
+for ar in /var/log/sync/logs/banned/adduri*; do nc 192.168.65.23 80 < $ar; done
+for di in /var/log/sync/logs/banned/dropip*; do nc 192.168.65.23 80 < $di; done
+for du in /var/log/sync/logs/banned/dropuid*; do nc 192.168.65.23 80 < $du; done
+
