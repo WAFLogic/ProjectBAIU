@@ -9,13 +9,18 @@
 # !!!BLOCKING MODE!!! How to Disable:
 # Perform and Find/Replace for the string #@# and replace with nothing. This will uncomment the standard 403 blocked content page. 
 # Alternatively you can search for this value and review the rest of the blocking options such as a 302 redirection, or simply no response at all
+#
+# 2016-10-01 Added WWW Rate Limiting ability. This focuses on a broader URI by using starts_with so you can rate limit an entire site by using / as the URI or 
+# all sub-paths of /public if you add /public. The additional dependency is R8L_WWW for DataGroups. The new counter is WWWTime and WWWB where Time is the 
+# tracking time and WWWB is the ban time. WWWMaxReqs is the maximum value for WWW Rate Limiter threshold before a block is initiated.
+
 
 when HTTP_REQUEST priority 140 {
 ######TroubleShooting Headers
 ### log local0. "TIP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - True-Client-IP Header value: [HTTP::header True-Client-IP]"
 
 
-	###########################################################################	
+	########
 	# Set user cookie as Session ID
 	set sid [string range [HTTP::cookie TLFREPLAYID] 0 32 ]
 	set jsid [string range [HTTP::cookie AKAMTMXSID] 0 18 ]
@@ -27,31 +32,33 @@ when HTTP_REQUEST priority 140 {
 	set BAIU_LOG_LVL 1
 
 
-	###########################################################################	
+	########
 	# Only process matched uris & allow specific IPs/UIDs
 	if {$tip ne ""} {
 	if { ( [class match $tip equals R8L_GOOD_IP ] ) || ( [class match $geo_i equals GOOD-geo-isp ] ) || ( [class match $geo_o equals GOOD-geo-org ] ) } {
-		if { $BAIU_LOG_LVL >= 2 } {log local0. " WHITELIST_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IP Whitelisted "}
-	return
+        set NOR8L 1
+		if { $BAIU_LOG_LVL >= 2 } {log local0. "~WHITELIST_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IP Whitelisted"}
+    	return
 	}
 #	# This line is enabled down below in the UID section. Disabling here ensures an IP gets a Request Count.
 #	#if { ( [class match $waf_uid equals R8L_GOOD_UID ] ) } {
-#		#if { $BAIU_LOG_LVL >= 2 } {log local0. " WHITELIST_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Username Whitelisted "}
+#		#if { $BAIU_LOG_LVL >= 2 } {log local0. "~WHITELIST_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Username Whitelisted"}
 #	#return
 #	#}
 	if { ( not [class match $buri equals R8L_URI ] ) and ( not [class match $buri ends_with XXX_LOGIN_URI ] ) and ( not [class match $buri starts_with R8L_WWW ] ) and ( not [class match $buri ends_with R8L_WWW ] )} {
-		if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NOMATCH_URI: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ URI not limited "}
-	return
+        set NOR8L 1
+        if { $BAIU_LOG_LVL >= 3 } {log local0. "~NOMATCH_URI: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ URI not limited"}
+	    return
 	}
 	if { [class match $tip equals R8L_BAD_IP ] } {
-		if { $BAIU_LOG_LVL >= 2 } {log local0. " MATCH_BAD_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IP in BAD group "}
+		if { $BAIU_LOG_LVL >= 2 } {log local0. "~MATCH_BAD_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IP in BAD group"}
 	}	
 	if {  [class match $tip equals R8L_BAD_UID ] } {
-		if { $BAIU_LOG_LVL >= 2 } {log local0. " MATCH_BAD_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ UID in BAD group "}
+		if { $BAIU_LOG_LVL >= 2 } {log local0. "~MATCH_BAD_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ UID in BAD group"}
 	}	
 	}
 
-	###########################################################################
+	########
 	# /// Sword - Single IP/UID/URI Tracking/Banning - Cut Them Down!
 	# Used to set different time outs for IP, UID, & URI tracking
 	# Ban and request times are for all but can make unique if desired
@@ -103,37 +110,37 @@ when HTTP_REQUEST priority 140 {
 #	#set MONITOR_TBL URI_limit_monitor
 #	#set MONITOR_TBL WWW_limit_monitor
 
-	###########################################################################
+	########
 	# This builds the Ban IP tracking value
 	set b_ip "b_$tip"
 
-	###########################################################################
+	########
 	# Distinctions
 	# This builds the R8L URI tracking value
 	if {$tip ne ""} {
 	if { ( [class match $buri equals R8L_URI ] ) and ( not [class match $tip equals R8L_GOOD_IP ] )} {
 		set r8luri 1
-			if { $BAIU_LOG_LVL >= 2 } {log local0. " R8L_URI_CALLED: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ R8L URI called "}
+			if { $BAIU_LOG_LVL >= 2 } {log local0. "~R8L_URI_CALLED: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ R8L URI called"}
 	}
 	# This builds the Login URI tracking value
 	if { ( [class match $buri ends_with XXX_LOGIN_URI ] ) and ( not [class match $tip equals R8L_GOOD_IP ] ) and ( $method == "POST" ) } {
 		set loginuri 1
-			if { $BAIU_LOG_LVL >= 2 } {log local0. " LOGIN_URI_CALLED: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ LOGIN URI called "}
+			if { $BAIU_LOG_LVL >= 2 } {log local0. "~LOGIN_URI_CALLED: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ LOGIN URI called"}
 	}
 	# This builds the R8L WWW tracking value. Using starts_with iRule function so we can add / /public or /private and cover all sub paths rather than just have a specific URI like the login page.
 	if { ( [class match $buri starts_with R8L_WWW ] || [class match $buri ends_with R8L_WWW ] ) and ( not [class match $tip equals R8L_GOOD_IP ] ) } {
 		set r8lwww 1
-			if { $BAIU_LOG_LVL >= 2 } {log local0. " R8L_WWW_CALLED: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ R8L WWW called "}
+			if { $BAIU_LOG_LVL >= 2 } {log local0. "~R8L_WWW_CALLED: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ R8L WWW called"}
 	}
 	}
 
 	if {$tip ne ""} {
 	if { $r8luri == 1 } {
-	###########################################################################
+	########
 	# Set Normal R8L URI Counters
 	set URICnt [table keys -subtable "URIReqMon" -count]
 
-	###########################################################################
+	########
 	# Begin the rate limiting by setting the unique ban values
 	set URIbTime [table timeout -subtable URIBanZ -remaining $b_ip ]
 	# Set IP/URI Ban count
@@ -146,7 +153,7 @@ when HTTP_REQUEST priority 140 {
 		table set -subtable URIBanZ $b_ip 1 $StdB $StdB
 		table set -subtable URIbCnt $b_ip 1 $STime $STime
 			if { $URIbTime <= [expr {$StdB} - 3600 ] } {
-			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~URI_ROLLING_BAN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~b_ip: $b_ip~,~Banned for: $StdB~,~Remaining Time Was: $URIbTime~,~"}
+			if { $BAIU_LOG_LVL >= 1 } {log local0. "~URI_ROLLING_BAN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $StdB - Remaining time was: $URIbTime"}
 			}
 		}
 
@@ -155,7 +162,7 @@ when HTTP_REQUEST priority 140 {
 		table set -subtable URIBanZ $b_ip 3 $LongB $LongB
 		table set -subtable URIbCnt $b_ip 3 $LTime $LTime
 			if { $URIbTime <= [expr {$StdB} - 3600 ] } {
-			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~URI_ROLLING_BAN_LONG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~b_ip: $b_ip~,~Banned for: $LongB~,~Remaining Time Was: $URIbTime~,~"}
+			if { $BAIU_LOG_LVL >= 1 } {log local0. "~URI_ROLLING_BAN_LONG: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $LongB - Remaining time was: $URIbTime"}
 			}
 		}
 
@@ -163,7 +170,7 @@ when HTTP_REQUEST priority 140 {
 	table delete -subtable URIReqMon $b_ip 
 
 #		# Log event with remaining time for IP/URI. Not useful with Rolling ban.
-#		#if { $BAIU_LOG_LVL >= 2 } {log local0. " BANNED_URI_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $URIbTime Remaining Time: [table timeout -subtable URIBanZ -remaining $b_ip ] "}
+#		#if { $BAIU_LOG_LVL >= 2 } {log local0. "~BANNED_URI_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $URIbTime, remaining time: [table timeout -subtable URIBanZ -remaining $b_ip ]"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 	# Send 403 page and reject. HTML content and 403 response.
 #	HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?rs=yes"
@@ -178,13 +185,13 @@ when HTTP_REQUEST priority 140 {
 	return
 	}
 
-	###########################################################################
+	########
 	# Set R8L Counters for R8L URIs
 	set URIreqCnt [table lookup -notouch -subtable URIReqMon $b_ip ]
 		# Log Request Counters
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_R8LURI_REQCNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~URIReqCnt: $URIreqCnt~,~MonIP: $b_ip~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BAIU_R8LURI_REQCNT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ URIReqCnt: $URIreqCnt MonIP: $b_ip"}
 
-	###########################################################################
+	########
 	# Check if IP exists in URI table if not create entry otherwise increment
 		if { $URIreqCnt == "" } {
 		# set the lifetime timeout value so request will go away after a set amount of time
@@ -194,21 +201,21 @@ when HTTP_REQUEST priority 140 {
 		set URIreqCnt [ table incr -notouch -subtable URIReqMon $b_ip ]
 		}
 
-	###########################################################################
+	########
 	# Set URI table limit and let connections pass if table is full
 	if { $URICnt >= 100000} {
-	if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~URI_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~URICnt: $URICnt - They Shall Pass~,~"}
+	if { $BAIU_LOG_LVL >= 1 } {log local0. "~URI_TABLE_FULL: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ URICnt: $URICnt - They shall pass"}
 	# Delete latest IP from URIReqMon table to free up new spot.
 	table delete -subtable URIReqMon $b_ip 
 	return
 	} else {
 	if { $URIbCnt >= 100000} {
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~URI_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~URIbCnt: $URIbCnt - They Shall Pass~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~URI_BAN_TABLE_FULL: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ URIbCnt: $URIbCnt - They shall pass"}
 	return
 	}
 	}
 
-	############################################################################
+	#########
 	# Check if too many request for a URI
 	if { $URIreqCnt > $URIMaxReqs } {
 	# Set the short ban time and remove httpRequests
@@ -229,7 +236,7 @@ when HTTP_REQUEST priority 140 {
 	# Ban them for $URIbTime 
 	table set -subtable URIBanZ $b_ip 1 $URIbTime $URIbTime
 #	#table set -subtable $URI_MONITOR_TBL "$b_ip" "UID: $waf_uid; Ban:$URIbTime secs" $URIbTime
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_URI_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~BANNING: b_ip: $b_ip~,~Banned for: $URIbTime~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_URI_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ BANNING: b_ip: $b_ip Banned for: $URIbTime"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 #	# HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?ws=yes"
 	   #HTTP::respond 302 Location "https://www.youtube.com/watch?v=ajD1eDaZALk"
@@ -256,14 +263,15 @@ when HTTP_REQUEST priority 140 {
 	}
 }
 
-	###########################################################################
+	########
 	# WWW Specific Rate Limiting
 	if {$tip ne ""} {
 	if { $r8lwww == 1 } {
+	########
 	# Set Normal R8L WWW Counters
 	set WWWCnt [table keys -subtable "WWWReqMon" -count]
 
-	###########################################################################
+	########
 	# Begin the rate limiting by setting the unique ban values
 	set WWWbTime [table timeout -subtable WWWBanZ -remaining $b_ip ]
 	# Set IP/WWW Ban count
@@ -276,7 +284,7 @@ when HTTP_REQUEST priority 140 {
 		table set -subtable WWWBanZ $b_ip 1 $WWWB $WWWB
 		table set -subtable WWWbCnt $b_ip 1 $WTime $WTime
 			if { $URIbTime <= [expr {$StdB} - 300 ] } {
-			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~WWW_ROLLING_BAN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~b_ip: $b_ip~,~Banned for: $WWWB~,~Remaining Time Was: $WWWbTime~,~"}
+			if { $BAIU_LOG_LVL >= 1 } {log local0. "~WWW_ROLLING_BAN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $WWWB - Remaining time was: $WWWbTime"}
 			}
 		}
 
@@ -285,15 +293,15 @@ when HTTP_REQUEST priority 140 {
 		table set -subtable WWWBanZ $b_ip 3 $StdB $StdB
 		table set -subtable WWWbCnt $b_ip 3 $WTime $WTime
 			if { $WWWbTime <= [expr {$WWWB} - 300 ] } {
-			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~WWW_ROLLING_BAN_LONG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~b_ip: $b_ip~,~Banned for: $StdB~,~Remaining Time Was: $WWWbTime~,~"}
+			if { $BAIU_LOG_LVL >= 1 } {log local0. "~WWW_ROLLING_BAN_LONG: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $StdB - Remaining time was: $WWWbTime"}
 			}
 		}
 
 	# Ensure IP is not in request counter to keep cleaner table. 
 	table delete -subtable WWWReqMon $b_ip 
 
-#		# Log event with Remaining time for IP/URI. Not useful with Rolling ban.
-#		#if { $BAIU_LOG_LVL >= 2 } {log local0. " BANNED_WWW: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $WWWbTime Remaining Time: [table timeout -subtable WWWBanZ -remaining $b_ip ] "}
+#		# Log event with remaining time for IP/URI. Not useful with Rolling ban.
+#		#if { $BAIU_LOG_LVL >= 2 } {log local0. "~BANNED_WWW: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $WWWbTime, remaining time: [table timeout -subtable WWWBanZ -remaining $b_ip ]"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 	# Send 403 page and reject. HTML content and 403 response.
 #	HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?www=yes"
@@ -308,12 +316,13 @@ when HTTP_REQUEST priority 140 {
 	return
 	}
 
-	###########################################################################
+	########
 	# Set R8L Counters for R8L WWWs
 	set WWWreqCnt [table lookup -notouch -subtable WWWReqMon $b_ip ]
 		# Log Request Counters
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_R8LWWW_REQCNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~WWWReqCnt: $WWWreqCnt~,~MonIP: $b_ip~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BAIU_R8LWWW_REQCNT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ WWWReqCnt: $WWWreqCnt MonIP: $b_ip"}
 
+	########
 	# Check if IP exists in WWW table if not create entry otherwise increment
 		if { $WWWreqCnt == "" } {
 		# set the lifetime timeout value so request will go away after a set amount of time
@@ -323,21 +332,21 @@ when HTTP_REQUEST priority 140 {
 		set WWWreqCnt [ table incr -notouch -subtable WWWReqMon $b_ip ]
 		}
 
-	###########################################################################
+	########
 	# Set WWW table limit and let connections pass if table is full
 	if { $WWWCnt >= 100000} {
-	if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~WWW_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~WWWCnt: $WWWCnt - They Shall Pass~,~"}
+	if { $BAIU_LOG_LVL >= 1 } {log local0. "~WWW_TABLE_FULL: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ WWWCnt: $WWWCnt - They shall pass"}
 	# Delete latest IP from WWWReqMon table to free up new spot.
 	table delete -subtable WWWReqMon $b_ip 
 	return
 	} else {
 	if { $WWWbCnt >= 100000} {
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~WWW_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~WWWbCnt: $WWWbCnt - They Shall Pass~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~WWW_BAN_TABLE_FULL: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ WWWbCnt: $WWWbCnt - They shall pass"}
 	return
 	}
 	}
 
-	############################################################################
+	#########
 	# Check if too many request for a WWW
 	if { $WWWreqCnt > $WWWMaxReqs } {
 	# Set the short ban time and remove httpRequests
@@ -358,7 +367,7 @@ when HTTP_REQUEST priority 140 {
 	# Ban them for $WWWbTime 
 	table set -subtable WWWBanZ $b_ip 1 $WWWbTime $WWWbTime
 #	#table set -subtable $WWW_MONITOR_TBL "$b_ip" "UID: $waf_uid; Ban:$WWWbTime secs" $WWWbTime
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_WWW:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~BANNING-b_ip: $b_ip~,~Banned for: $WWWbTime~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_WWW: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ BANNING: b_ip: $b_ip Banned for: $WWWbTime"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 #	# HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?www=yes"
 	   HTTP::respond 302 Location "https://www.youtube.com/watch?v=ajD1eDaZALk"
@@ -390,18 +399,18 @@ when HTTP_REQUEST_DATA priority 141 {
 	if {$tip ne ""} {
 	if { $loginuri == 1 } {
 
-	###########################################################################
+	########
 	# Set Normal IP & UID Counters
 	set IPCnt [table keys -subtable "IPReqMon" -count]
 	set UIDCnt [table keys -subtable "UIDReqMon" -count]
 
-	###########################################################################
+	########
 	# Begin the rate limiting by setting the unique ban values
 	set IPbTime [table timeout -subtable IPBanZ -remaining $b_ip ]
 	# Set IP Ban count
 	set IPbCnt [table lookup -notouch -subtable IPbCnt $b_ip ]
 
-	###########################################################################
+	########
 	# Check for IP ban time
 	if { $IPbTime > 0 } {
 		if { $IPbCnt == 1 } {
@@ -409,7 +418,7 @@ when HTTP_REQUEST_DATA priority 141 {
 		table set -subtable IPBanZ $b_ip 1 $StdB $StdB
 		table set -subtable IPbCnt $b_ip 1 $STime $STime
 			if { $IPbTime <= [expr {$StdB} - 3600 ] } {
-			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_ROLLING_BAN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~b_ip: $b_ip~,~Banned for: $StdB~,~Remaining Time Was: $IPbTime~,~"}
+			if { $BAIU_LOG_LVL >= 1 } {log local0. "~IP_ROLLING_BAN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $StdB - Remaining time was: $IPbTime"}
 			}
 		}
 
@@ -418,7 +427,7 @@ when HTTP_REQUEST_DATA priority 141 {
 		table set -subtable IPBanZ $b_ip 3 $LongB $LongB
 		table set -subtable IPbCnt $b_ip 3 $LTime $LTime
 			if { $IPbTime <= [expr {$StdB} - 3600 ] } {
-			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_ROLLING_BAN_LONG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~b_ip: $b_ip~,~Banned for: $LongB~,~Remaining Time Was: $IPbTime~,~"}
+			if { $BAIU_LOG_LVL >= 1 } {log local0. "~IP_ROLLING_BAN_LONG: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $LongB - Remaining time was: $IPbTime"}
 			}
 		}
 
@@ -430,10 +439,10 @@ when HTTP_REQUEST_DATA priority 141 {
 
 #	## Ban UID used during IP block invocation. This can be very dangerous since it would block all UIDs used in a list which will likely have a lot of good accounts. They could never stop and ban every user.
 #	#table set -subtable UIDBanZ $b_uid 1 $HalfB $HalfB
-#	#	if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~BANNING-b_uid: $b_uid Banned for: $HalfB~,~"}
+#	#	if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ BANNING: b_uid: $b_uid Banned for: $HalfB"}
 
-#		# Log event with Remaining time for IP. Not useful with Rolling ban.
-#		#if { $BAIU_LOG_LVL >= 2 } {log local0. " BANNED_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $IPbTime Remaining Time: [table timeout -subtable IPBanZ -remaining $b_ip ] "}
+#		# Log event with remaining time for IP. Not useful with Rolling ban.
+#		#if { $BAIU_LOG_LVL >= 2 } {log local0. "~BANNED_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $IPbTime, remaining time: [table timeout -subtable IPBanZ -remaining $b_ip ]"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 #	HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
 	 HTTP::respond 302 Location "https://www.youtube.com/watch?v=ajD1eDaZALk"
@@ -448,22 +457,22 @@ when HTTP_REQUEST_DATA priority 141 {
 	return
 	}
 
-	###########################################################################
+	########
 	# Set IP table limit and let connections pass if table is full
 	if { $IPCnt >= 85000} {
-	if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~IPCnt: $IPCnt - They Shall Pass ~,~"}
+	if { $BAIU_LOG_LVL >= 1 } {log local0. "~IP_TABLE_FULL: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IPCnt: $IPCnt - They shall pass"}
 	# Delete latest IP from IPReqMon table to free up new spot.
 	table delete -subtable IPReqMon $b_ip 
 	table delete -all -subtable I2U$b_ip 
 	return
 	} else {
 	if { $IPbCnt >= 85000} {
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~IPbCnt: $IPbCnt - They Shall Pass ~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~IP_BAN_TABLE_FULL: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IPbCnt: $IPbCnt - They shall pass"}
 	return
 	}
 	}
 
-	###########################################################################
+	########
 	# SetUID Nicest 1 liner. Check length 6 or more, lower case, remove e-mail, strip special characters, and reduce tracked length to 14.
 	set uid_nicest [string range [string map {" " ""} [string map {\x21 \x20 \x22 \x20 \x23 \x20 \x24 \x20 \x25 \x20 \x27 \x20 \x28 \x20 \x29 \x20 \x2A \x20 \x2B \x20 \x2C \x20 \x2D \x20 \x2E \x20 \x2F \x20 \x3A \x20 \x3B \x20 \x3C \x20 \x3D \x20 \x3E \x20 \x3F \x20 \x5B \x20 \x5C \x20 \x5D \x20 \x5E \x20 \x5F \x20 \x60 \x20 \x7B \x20 \x7C \x20 \x7D \x20 \x7E \x20} [string map {"%20" " "} [string map {"%25" "%"} [string map {"%2525" "%"} [getfield [string map {"%40" "@"} [string trim [string tolower $waf_uid ] ] ] "@" 1 ] ] ] ] ] ] 0 13 ]
 #	set uid_nicest [string range [string map {" " ""} [string map {\x21 \x20 \x22 \x20 \x23 \x20 \x24 \x20 \x25 \x20 \x27 \x20 \x28 \x20 \x29 \x20 \x2A \x20 \x2B \x20 \x2C \x20 \x2D \x20 \x2E \x20 \x2F \x20 \x3A \x20 \x3B \x20 \x3C \x20 \x3D \x20 \x3E \x20 \x3F \x20 \x5B \x20 \x5C \x20 \x5D \x20 \x5E \x20 \x5F \x20 \x60 \x20 \x7B \x20 \x7C \x20 \x7D \x20 \x7E \x20} [getfield [string map {"%40" "@"} [string trim [string tolower $waf_uid ] ] ] "@" 1 ] ] ] 0 13 ]
@@ -472,7 +481,7 @@ when HTTP_REQUEST_DATA priority 141 {
 #	#set uid_nice [string trim [string tolower $waf_uid ] ]
 #	#if string range less than 6 chars do not track return since it's not min user ID length. Blocking is optional.
 #	#if { [ string length $uid_nice ] <= 5 } {
-#	#	if { $BAIU_LOG_LVL >= 2 } {log local0. " UID_2SHORT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ UID too short "}
+#	#	if { $BAIU_LOG_LVL >= 2 } {log local0. "~UID_2SHORT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o GEO_PXY: $geo_p EdgeIP: [IP::client_addr] VIP: [virtual name] UID: $uid_nicest SID: $sid~$jsid HOST: $baiu_host URI: $buri ~ UID too short" }
 #	#return
 #	#}
 #
@@ -484,7 +493,7 @@ when HTTP_REQUEST_DATA priority 141 {
 #	## Do not track e-mail addresses with UIDs. Useful with UID Nicest 1 liner that doesn't strip e-mails when e-mails aren't considered as UIDs
 #	#set uid_nice [string map {"%40" "@"} $waf_uid ]
 #	#if { $uid_nice contains "@" } {
-#		#if { $BAIU_LOG_LVL >= 2 } {log local0. " NON_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ UID is e-mail - do not track UID-Nice:$uid_nice "}
+#		#if { $BAIU_LOG_LVL >= 2 } {log local0. "~NON_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o GEO_PXY: $geo_p EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ UID is e-mail - do not track UID-Nice:$uid_nice" }
 #	#return
 #	#}
 #	## SetUID Nicest 1 liner but not using e-mail. Check length 6 or more, lower case,  strip special characters, and reduce tracked length to 14. Combine with e-mail dropper above.
@@ -492,7 +501,7 @@ when HTTP_REQUEST_DATA priority 141 {
 
 	# Check after shortening tracking UID is still minimum length. If not then return or drop. my.uid is 6 but wld be myuid n then be dropped if dot is char in uid_nicest logic.
 	if { [ string length $uid_nicest ] <= 3 } {
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~UID_2SHORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID still too short~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~UID_2SHORT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ UID still too short" }
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 #	HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
 	 #HTTP::respond 302 Location "https://www.https://www.youtube.com/watch?v=ajD1eDaZALk.com/watch?v=w_lCi8U49mY"
@@ -507,10 +516,11 @@ when HTTP_REQUEST_DATA priority 141 {
 	return
 	}
 
-	###########################################################################
+	########
 	# This line builds the Ban UID value
 	set b_uid "b_$uid_nicest"
 
+	########
 	# Set UID Ban Time
 	set UIDbTime [table timeout -subtable UIDBanZ -remaining $b_uid ]
 
@@ -518,7 +528,7 @@ when HTTP_REQUEST_DATA priority 141 {
 	set UIDbCnt [table lookup -notouch -subtable UIDbCnt $b_uid ]
 	# Set UID table limit and let connections pass if table is full
 	if { $UIDCnt >= 100000} {
-	if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~UID_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UIDCnt: $UIDCnt - They Shall Pass ~,~"}
+	if { $BAIU_LOG_LVL >= 1 } {log local0. "~UID_TABLE_FULL: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ UIDCnt: $UIDCnt - They shall pass"}
 	# Delete latest UID from UIDReqMon table to free up new spot.
 	table delete -subtable UIDReqMon $b_uid
 	table delete -all -subtable I2U$b_ip 
@@ -526,27 +536,27 @@ when HTTP_REQUEST_DATA priority 141 {
 	return
 	} else {
 	if { $UIDbCnt >= 100000 } {
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~UID_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UIDbCnt: $UIDbCnt - They Shall Pass ~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~UID_BAN_TABLE_FULL: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ UIDbCnt: $UIDbCnt - They shall pass"}
 	return
 	}	
 	}
 
-	###########################################################################
+	########
 	# Check if UID is white listed. If so let them pass. You must use simplified UIDs for whitelisting
 	# We use this one here because we still want an IP Req Count.
 	if { ( [class match $waf_uid equals R8L_GOOD_UID ] ) } {
-		if { $BAIU_LOG_LVL >= 2 } {log local0. " WHITELIST_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Username Whitelisted "}
+		if { $BAIU_LOG_LVL >= 2 } {log local0. "~WHITELIST_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Username Whitelisted"}
 	return
 	}
 
-	###########################################################################
+	########
 	# Check for UID ban time
 	if { $UIDbTime > 0 } {
 	## Reset Ban counter for UID for repeat failures during blocking period to create a rolling blocking scenario so block does not start until UID stops.
 #	# UID rolling ban VERY helpful to block list attackers. Still can ban valid account.
 #	#table set -subtable UIDBanZ $b_uid 1 $HalfB $HalfB
 #		#if { $IPbTime <= [expr {$StdB} - 3600 ] } {
-#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~UID_ROLLING_BAN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~b_uid: $b_uid~,~Banned for: $HalfB~,~Remaining Time Was: $UIDbTime~,~"}
+#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~UID_ROLLING_BAN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_uid: $b_uid Banned for: $HalfB - - Remaining time was: $UIDbTime""}
 #		#}
 	# Ensure UID is not in request counter to keep cleaner table. 
 	table delete -subtable UIDReqMon $b_uid 
@@ -557,10 +567,10 @@ when HTTP_REQUEST_DATA priority 141 {
 	## Ban IP used during UID block invocation
 	table set -subtable IPBanZ $b_ip 1 $StdB $StdB
 	table set -subtable IPbCnt $b_ip 1 $STime $STime
-#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_UID:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~BANNING: b_ip: $b_ip~,~Banned for: $StdB~,~"}
+#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ BANNING: b_ip: $b_ip Banned for: $StdB"}
 
-		# Log event with Remaining time for UID. Not useful with Rolling UID ban.
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_UID:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~b_ip: $b_ip~,~Banned for: $StdB~,~UID Ban Time Remaining: $UIDbTime~,~"}
+		# Log event with remaining time for UID. Not useful with Rolling UID ban.
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ b_ip: $b_ip Banned for: $StdB, - UID Ban Time Remaining: $UIDbTime"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 #	HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
 	 HTTP::respond 302 Location "https://www.youtube.com/watch?v=ajD1eDaZALk"
@@ -575,15 +585,15 @@ when HTTP_REQUEST_DATA priority 141 {
 	return
 	}
 
-	###########################################################################
+	########
 	# Set IP & UID Request Counters for Login URI
 	set IPreqCnt [table lookup -notouch -subtable IPReqMon $b_ip ]
 	set UIDreqCnt [table lookup -notouch -subtable UIDReqMon $b_uid ]
 		# Log Request Counters. Useful for investigating behavior and tracking all UIDs at the same time.
 		# Disable if you have the All in One log at the end enabled
-#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_LOGIN_REQCNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~IPReqCnt: $IPreqCnt~,~UIDReqCnt: $UIDreqCnt~,~MonIP: $b_ip~,~MonUID: $b_uid~,~"}
+#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~BAIU_LOGIN_REQCNT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IPReqCnt: $IPreqCnt UIDReqCnt: $UIDreqCnt MonIP: $b_ip MonUID: $b_uid"}
 
-	###########################################################################
+	########
 	# Check if IP exists if not create entry otherwise increment
 		if { $IPreqCnt == "" } {
 		# set the lifetime timeout value so request will go away after a set amount of time
@@ -593,7 +603,7 @@ when HTTP_REQUEST_DATA priority 141 {
 		set IPreqCnt [ table incr -notouch -subtable IPReqMon $b_ip ]
 		}
 
-	###########################################################################
+	########
 	# Check if UID exists if not create entry otherwise increment
 		if { $UIDreqCnt == "" } {
 		# set the lifetime timeout value so request will go away after a set amount of time
@@ -603,21 +613,25 @@ when HTTP_REQUEST_DATA priority 141 {
 		set UIDreqCnt [ table incr -notouch -subtable UIDReqMon $b_uid ]
 		}
 
+	#########
 	# ... Sword - Single IP/UID Tracking/Banning 
-	############################################################################
+	#########
 
-	############################################################################
+	#########
 	# /// Hydra - Single to Many IP/UID Tracking/Banning
+	#########
 	# Single IP tracking all UIDs - Set values for single IP calling to multi UIDs
 	set I2UuReq [ table set -subtable I2U$b_ip $b_uid 1 $STime $STime ]
 	# Single UID tracking all IPs - Set values for all IPs calling to UID
 	set U2IuReq [ table set -subtable U2I$b_uid $b_ip 1 $STime $STime ]
+
+	#########
 	# ... Hydra - Single to Many IP/UID Tracking/Banning 
-	############################################################################
+	#########
 
-	############################################################################
+	#########
 	# /// Sword - Single IP/UID Tracking/Banning 
-
+	#########
 	# Check if too many request for an IP
 	if { $IPreqCnt > $IPMaxReqs } {
 	# Set the short ban time and remove httpRequests
@@ -646,8 +660,8 @@ when HTTP_REQUEST_DATA priority 141 {
 	table delete -all -subtable I2U$b_ip 
 #	#table delete -all -subtable U2I$b_uid
 #	#table set -subtable $IP_MONITOR_TBL "$b_ip" "UID: $waf_uid; Ban:$IPbTime secs" $IPbTime
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~BANNING: b_ip: $b_ip~,~Banned for: $IPbTime~,~"}
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~BANNING: b_uid: $b_uid~,~Banned for: $UIDbTime~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ BANNING: b_ip: $b_ip Banned for: $IPbTime"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ BANNING: b_uid: $b_uid Banned for: $UIDbTime"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 #	HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
 	 HTTP::respond 302 Location "https://www.youtube.com/watch?v=ajD1eDaZALk"
@@ -670,7 +684,7 @@ when HTTP_REQUEST_DATA priority 141 {
 #		#log local0.alert "IP_limit_monitor tbl keys: [table keys -subtable $IP_MONITOR_TBL -notouch]"
 		}
 
-	###########################################################################
+	########
 	# Check if too many requests for a user ID
 	if { $UIDreqCnt > $UIDMaxReqs } {
 	# Set the short ban time and remove httpRequests
@@ -699,8 +713,8 @@ when HTTP_REQUEST_DATA priority 141 {
 	table delete -all -subtable I2U$b_ip 
 	table delete -all -subtable U2I$b_uid
 #	#table set -subtable $UID_MONITOR_TBL "$b_uid" "UID: $waf_uid; Ban:$UIDbTime secs" $UIDbTime
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_UID:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~BANNING: b_ip: $b_ip~,~Banned for: $IPbTime~,~"}
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_UID:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~BANNING: b_uid: $b_uid~,~Banned for: $UIDbTime~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ BANNING: b_ip: $b_ip Banned for: $IPbTime"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ BANNING: b_uid: $b_uid Banned for: $UIDbTime"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 #	HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
 	 HTTP::respond 302 Location "https://www.youtube.com/watch?v=ajD1eDaZALk"
@@ -722,27 +736,28 @@ when HTTP_REQUEST_DATA priority 141 {
 		log local0.alert "UIDbTime: [table lookup -notouch -subtable UIDBanZ $b_uid]"
 #		#log local0.alert "UID_limit_monitor tbl keys: [table keys -subtable $UID_MONITOR_TBL -notouch]"
 		}
+	########
 	# ... Sword - Single IP/UID Tracking/Banning
-	###########################################################################
+	########
 
-	###########################################################################
+	########
 	# /// Hydra - Single to Many IP/UID Tracking/Banning - - Multi-Head Attack
-
+	########
 	# Set Single to many IPs/UIDs Counters
 	set I2UCnt [table keys -subtable I2U$b_ip -count ]
 	set U2ICnt [table keys -subtable U2I$b_uid -count ]
 	# Disable if you have the All in One log at the end enabled
-#	#if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_CNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~I2UCnt: $I2UCnt~,~U2ICnt: $U2ICnt~,~b_ip: $b_ip~,~b_uid: $b_uid~,~"}
-	############################################################################	
+#	#if { $BAIU_LOG_LVL >= 1 } {log local0. "~HYDRA_HEAD_CNT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ I2UCnt: $I2UCnt U2ICnt: $U2ICnt b_ip: $b_ip b_uid: $b_uid"}
+	#########
 	# Check if too many unique IPs have called a single UID
 	# Uncomment one or both logs. Last 1 is best.
 	if { $I2UCnt  >= $I2UMaxReqs } {
 	set IPbTime $StdB
 	set UIDbTime $HalfB
-#	############################################################################
+#	#########
 	# Begin banning ALL (foreach) unique UIDs from single IP
 #	foreach I2U_uid [table keys -subtable I2U$b_ip ] ### Put start brace here if using foreach!!!!
-#	############################################################################
+#	#########
 #	# Max Request Counts for IP calling multiple UIDs
 #	#table set -subtable IPReqMon $b_ip 5000 $STime $STime
 	# Ban IP calling multiple UIDs !!! Disabling to use set max request counts instead.
@@ -751,7 +766,7 @@ when HTTP_REQUEST_DATA priority 141 {
 #	## Ban all UIDs the single IP used. Could ban a lot of good accounts.
 #	#table set -subtable UIDBanZ $I2U_uid 1 $UIDbTime $UIDbTime	
 #		## Log item when blocking all UIDs used.
-#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2UID:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~2Many UIDs for 1 IP - BANNED~,~b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~b_uid: $I2U_uid~,~UID Ban Time: $UIDbTime~,~"}
+#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_IP2UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ 2Many UIDs for 1 IP Banned b_ip: $b_ip for: $IPbTime & b_uid: $I2U_uid for: $UIDbTime"}
 	######### Put end brace here if using foreach!!!!!!!!!! iRule will not load if you put brace in incomplete string despite comment on end
 	# Ban UID at time of ban. 
 	table set -subtable UIDBanZ $b_uid 1 $UIDbTime $UIDbTime
@@ -761,7 +776,7 @@ when HTTP_REQUEST_DATA priority 141 {
 	# Clear Request monitor for UID & IP
 	table delete -subtable IPReqMon $b_ip
 	table delete -subtable UIDReqMon $b_uid
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2UID:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~2Many UIDs from 1 IP - BANNED~,~b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~b_uid: $b_uid~,~UID Ban Time: $UIDbTime~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_IP2UID: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ 2Many UIDs from 1 IP Banned b_ip: $b_ip for: $IPbTime & b_uid: $b_uid for: $UIDbTime"}
 	# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 #	HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
 	 HTTP::respond 302 Location "https://www.youtube.com/watch?v=ajD1eDaZALk"
@@ -776,25 +791,25 @@ when HTTP_REQUEST_DATA priority 141 {
 	return
 	}
 
-	############################################################################		
+	#########	
 	# Check if too many unique UIDs have been called from a single IP
 	# Uncomment one or both logs. Second is best.
 	if { $U2ICnt  >= $U2IMaxReqs } {
 	set IPbTime $StdB
 	set UIDbTime $HalfB
-	############################################################################
+	#########
 	# Begin banning ALL (foreach) unique IPs that called single UID
 	foreach U2I_tip [table keys -subtable U2I$b_uid ] {
-	############################################################################
+	#########
 	# Ban all IPs used to call single UID
 	table set -subtable IPBanZ $U2I_tip 1 $IPbTime $IPbTime
 	table set -subtable IPbCnt $U2I_tip 1 $IPbTime $IPbTime
 	# Max request counts & reset timers for all IPs used to call single UID
 	#table set -subtable IPReqMon $U2I_tip 5000 $STime $STime
 #		## Standard log. Use 2nd if banning all IPs used for single UID.
-#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_UID2IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~2Many IPs for 1 UID - BANNED ALL IPs for UID~,~Last IP: $tip~,~b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~b_uid: $b_uid~,~UID Ban Time: $UIDbTime~,~"}
+#		#if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_UID2IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ 2Many IPs for 1 UID - Banned b_ip: $b_ip for: $IPbTime & b_uid: $b_uid for: $UIDbTime"}
 		# Log item when blocking all IPs used.
-		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_UID2IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~2Many IPs for 1 UID - BANNED ALL IPs for UID~,~Last IP: $tip~,~b_ip: $U2I_tip~,~IP Ban Time: $IPbTime~,~b_uid: $b_uid~,~UID Ban Time: $UIDbTime~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~BANNED_UID2IP: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Banned b_ip: $U2I_tip for: $IPbTime & b_uid: $b_uid for: $UIDbTime"}
 #	## Clear table of tracking entry since IPs are now banned. !!! Disabling to use set max request counts instead.
 #	#table delete -all -subtable I2U$U2I_tip
 #	## Clear Request monitor for all IPs. !!! Disabling to use set max request counts instead.
@@ -819,12 +834,14 @@ when HTTP_REQUEST_DATA priority 141 {
 	event disable all
 	return
 	}
+
+	########
 	# ... Hydra - Single to Many IP/UID Tracking - Multi-Head Attack
-	###########################################################################
+	########
 
-	###########################################################################
+	########
 	# /// Torch - Request Multiplier - Burn Them Down
-
+	########
 	# This section defines the attributes to be used with the $R8X multiplier for faster banning
 	# Null values to identify which page has been called. These are used in the HTTP response to determine if a failed login attempt was made. If so the request count will add 1 doubling the count making them fail faster.
 	set lp1 0
@@ -832,14 +849,14 @@ when HTTP_REQUEST_DATA priority 141 {
 	set lp3 0
 	set lp4 0
 
-	###########################################################################
+	########
 	# Set the URIs to be used. We use lp values since we track on Login Pages.
 	if { $buri equals "/wp-login.php" } {
 	set lp1 1
 	}
-#	if { $buri equals "/public/ofx" } {
-#	set lp2 1
-#	}
+	if { $buri equals "/auth/auth" } {
+	set lp2 1
+	}
 #	if { $buri equals "/login-online-profile" } {
 #	set lp3 1
 #	}
@@ -852,12 +869,15 @@ when HTTP_REQUEST_DATA priority 141 {
 
 
 when HTTP_RESPONSE priority 143 {
-	###########################################################################
+	########
 	# Check to see if a tracked URI is called. We use focus on Logins so we use the Login DG.
 	if {$tip ne ""} {
-	if { ( not [class match $buri ends_with XXX_LOGIN_URI ] ) } {
-	return
-	}
+	    if { ( not [class match $buri ends_with XXX_LOGIN_URI ] ) } {
+	    return
+	    }
+        if { $NOR8L == 1 } {
+        return
+        }
 	}
 
 	# Check which login page was used and then determine if the login failed or not. If failure, increase request counter by $R8X value
@@ -868,7 +888,7 @@ when HTTP_RESPONSE priority 143 {
 		table incr -notouch -subtable UIDReqMon $b_uid $R8X 
 		 set b_log 1
 		# Disable if you have the All in One log at the end enabled
-		   if { $BAIU_LOG_LVL >= 2 } {log local0. " BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times "}
+		   if { $BAIU_LOG_LVL >= 2 } {log local0. "~BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times"}
 		}
 	}
 #	# This is the login page
@@ -878,18 +898,18 @@ when HTTP_RESPONSE priority 143 {
 #		table incr -notouch -subtable UIDReqMon $b_uid $R8X 
 #		set b_log 1
 #		# Disable if you have the All in One log at the end enabled
-#			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAD_LOGIN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Multiplying Request Count $R8X times~,~"}
+#			if { $BAIU_LOG_LVL >= 1 } {log local0. "~BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times"}
 #		}
 #	}
 #	# This is the login page 
-#	if { $lp2 == 1 } {
-#		if { [HTTP::cookie exists "guestdata" ] != 1 } {
-#		table incr -notouch -subtable IPReqMon $b_ip $R8X
-#		table incr -notouch -subtable UIDReqMon $b_uid $R8X 
-#		set b_log 1
-#		# Disable if you have the All in One log at the end enabled
-#			if { $BAIU_LOG_LVL >= 2 } {log local0. " BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times "}
-#		}
+	if { $lp2 == 1 } {
+		if { [HTTP::cookie exists "guestdata" ] != 1 } {
+		table incr -notouch -subtable IPReqMon $b_ip $R8X
+		table incr -notouch -subtable UIDReqMon $b_uid $R8X 
+		set b_log 1
+		# Disable if you have the All in One log at the end enabled
+			if { $BAIU_LOG_LVL >= 2 } {log local0. "~BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times"}
+		}
 #	}
 #	# This is the login page for SignInFlyout on CH.com
 #	if { $lp2 == 1 } {
@@ -898,7 +918,7 @@ when HTTP_RESPONSE priority 143 {
 #		table incr -notouch -subtable UIDReqMon $b_uid $R8X 
 #		set b_log 1
 #		# Disable if you have the All in One log at the end enabled
-#			if { $BAIU_LOG_LVL >= 2 } {log local0. " BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times "}
+#			if { $BAIU_LOG_LVL >= 2 } {log local0. "~BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times"}
 #		}
 #	}
 #	# This is the login page for IWS
@@ -908,7 +928,7 @@ when HTTP_RESPONSE priority 143 {
 #		table incr -notouch -subtable UIDReqMon $b_uid $R8X 
 #		set b_log 1
 #		# Disable if you have the All in One log at the end enabled
-#			if { $BAIU_LOG_LVL >= 2 } {log local0. " BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times "}
+#			if { $BAIU_LOG_LVL >= 2 } {log local0. "~BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times"}
 #		}
 #	}
 #	# This is the login page for Mobile. This is also the landing page of the sign in page but CPID cookie is always there.
@@ -918,7 +938,7 @@ when HTTP_RESPONSE priority 143 {
 #		table incr -notouch -subtable UIDReqMon $b_uid $R8X 
 #		set b_log 1
 #		# Disable if you have the All in One log at the end enabled
-#			if { $BAIU_LOG_LVL >= 2 } {log local0. " BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times "}
+#			if { $BAIU_LOG_LVL >= 2 } {log local0. "~BAD_LOGIN: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ Multiplying Request Count $R8X times"}
 #		} else {
 #	# Delete Hydra entries due to successful auth. 
 #	table delete -subtable I2U$b_ip $b_uid 
@@ -926,7 +946,7 @@ when HTTP_RESPONSE priority 143 {
 #		}
 #	}
 
-	############################################################################
+	#########
 	####				  The Roads to Olympus or Hades						####
 	# Check the percentage of failed/success vs. max counts.
 	# If high fail to max counts, then multiply request count faster for faster deny
@@ -944,15 +964,15 @@ when HTTP_RESPONSE priority 143 {
 		# Set IP Fail Auth Counter
 		set FailIPACnt [table lookup -notouch -subtable FailIPACnt $b_ip ]
 		# Log Request Counters
-		if { $BAIU_LOG_LVL >= 2 } {log local0. " BAIU_FAIL_IP_COUNT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ FailIPAuthCnt: $FailIPACnt MonIP: $b_ip "}
+		if { $BAIU_LOG_LVL >= 2 } {log local0. "~BAIU_FAIL_IP_COUNT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ FailIPAuthCnt: $FailIPACnt MonIP: $b_ip"}
 		# Check for Fail Count Entry and Increment if Failed
 		if { $FailIPACnt == "" } {
 			# set the lifetime timeout value so request will go away after a set amount of time
-			if { $BAIU_LOG_LVL >= 2 } {log local0. " BAIU_FAIL_IP_SET: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ FailIPAuthCnt: $FailIPACnt MonIP: $b_ip "}
+			if { $BAIU_LOG_LVL >= 2 } {log local0. "~BAIU_FAIL_IP_SET: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ FailIPAuthCnt: $FailIPACnt MonIP: $b_ip"}
 				set FailIPACnt [ table set -subtable FailIPACnt $b_ip 1 $STime $STime ]
 		} else {
 		# Increment FailIPACnt Counter
-			if { $BAIU_LOG_LVL >= 2 } {log local0. " BAIU_FAIL_IP_INCR: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ FailIPAuthCnt: $FailIPACnt MonIP: $b_ip "}
+			if { $BAIU_LOG_LVL >= 2 } {log local0. "~BAIU_FAIL_IP_INCR: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ FailIPAuthCnt: $FailIPACnt MonIP: $b_ip"}
 			set FailIPACnt [ table incr -notouch -subtable FailIPACnt $b_ip ]
 		}
 		# AUTHENTICATION FAILURE INCREMENTS
@@ -962,13 +982,13 @@ when HTTP_RESPONSE priority 143 {
 		# This is done for the IPreqCnt and I2UCnt
 		if { $IPreqCnt >= [expr ( $IPMaxReqs * .5 ) ] } {
 			if { $FailIPACnt >=  [expr ( $IPMaxReqs * .25 ) ] } {
-				if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_VOL_PENALTY_IPCNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~FailIPAuthCnt: $FailIPACnt MonIP: $b_ip~,~"}
+				if { $BAIU_LOG_LVL >= 1 } {log local0. "~BAIU_VOL_PENALTY_IPCNT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ FailIPAuthCnt: $FailIPACnt MonIP: $b_ip"}
 		table incr -notouch -subtable IPReqMon $b_ip $R8X
 				}
 		}
 		if { $I2UCnt >= [expr ( $I2UMaxReqs * .5 ) ] } {
 			if { $FailIPACnt >=  [expr (  $I2UMaxReqs * .25 ) ] } {
-				if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_VOL_PENALTY_I2UCNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~FailIPAuthCnt: $FailIPACnt~,~MonIP: $b_ip~,~"}
+				if { $BAIU_LOG_LVL >= 1 } {log local0. "~BAIU_VOL_PENALTY_I2UCNT: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ FailIPAuthCnt: $FailIPACnt MonIP: $b_ip"}
 				table incr -notouch -subtable IPReqMon $b_ip $R8X
 			}
 		 }
@@ -981,14 +1001,14 @@ when HTTP_RESPONSE priority 143 {
 	if { $b_log == 0 } {
 	if {  $IPreqCnt >= [expr ( $IPMaxReqs * .5 ) ] || $I2UCnt >= [expr ( $I2UMaxReqs * .5 ) ] } {
 		if { [table lookup -notouch -subtable FailIPACnt $b_ip ] == "" || [table lookup -notouch -subtable FailIPACnt $b_ip ] <= [expr ( .1 * $IPMaxReqs ) ] } {
-	# For 90% success at 50% of threshold, subtract 1 hour 3600 from Remaining time if greater than 2 hours remain.
+	# For 90% success at 50% of threshold, subtract 1 hour 3600 from remaining time if greater than 2 hours remain.
 	# Otherwise just drop it.
 		if { [table timeout -subtable IPReqMon -remaining $b_ip ] >= 7200 } {
-			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_VOL_ADJ_IP_TIMER:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Decreasing Remaining time for High Volume of Successful Auths~,~Remaining Time: [table timeout -subtable IPReqMon -remaining $b_ip ] MonIP: $b_ip~,~"}
+			if { $BAIU_LOG_LVL >= 1 } {log local0. "~BAIU_VOL_ADJ_IP_TIMER: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ Decreasing Remaining Time for High Volume of Successful Auths - Remaining Time: [table timeout -subtable IPReqMon -remaining $b_ip ]  MonIP: $b_ip"}
 			table timeout -subtable IPReqMon $b_ip [expr ( [table timeout -subtable IPReqMon -remaining $b_ip ] - 7200 ) ]
 			table timeout I2U$b_ip  [expr ( [table timeout -subtable IPReqMon -remaining $b_ip ] - 7200 ) ]
 		} else {
-			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_VOL_ADJ_IP_RESET:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~HOST: $baiu_host~,~URI: $buri ~~,~Resetting Remaining time for High Volume of Successful Auths MonIP: $b_ip~,~"}
+			if { $BAIU_LOG_LVL >= 1 } {log local0. "~BAIU_VOL_ADJ_IP_RESET: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~ Resetting Remaining Time for High Volume of Successful Auths MonIP: $b_ip"}
 			table delete -subtable IPReqMon $b_ip
 			table delete -all -subtable I2U$b_ip
 		}
@@ -996,8 +1016,9 @@ when HTTP_RESPONSE priority 143 {
 	}
 	}
 
-	###########################################################################
+	########
 	# ... Torch - Request Multiplier - Burn Them Down
+	########
 
 	# This combines BAIU_LOGIN_REQCNT, HYDRA_HEAD_CNT, and BAD_LOGIN into a single log line
 	# You will want to disable those log items when using this.
@@ -1009,7 +1030,7 @@ when HTTP_RESPONSE priority 143 {
 	# while still logging 2nd and further attempts i.e. where security is interested.
 #	if { not ( [class match $tip equals R8L_GOOD_IP ] || [class match $waf_uid equals R8L_GOOD_UID ] ) && ( $method == "POST" && [class match $buri ends_with XXX_LOGIN_URI ] )  } {
 #		if { not ( $IPreqCnt equals "" && $UIDreqCnt equals "" ) } {
-#			if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_CNTZ:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~IPreqCnt: $IPreqCnt~,~UIDreqCnt: $UIDreqCnt~,~I2UCnt: $I2UCnt~,~U2ICnt: $U2ICnt~,~BadLogin: $b_log~,~MonIP: $b_ip~,~MonUID: $b_uid~,~"}
+#			if { $BAIU_LOG_LVL >= 1 } {log local0. "~HYDRA_HEAD_CNTZ: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IPreqCnt: $IPreqCnt UIDreqCnt: $UIDreqCnt I2UCnt: $I2UCnt U2ICnt: $U2ICnt BadLogin: $b_log MonIP: $b_ip MonUID: $b_uid"}
 #		}
 #	}
 	if { not ( [class match $tip equals R8L_GOOD_IP ] || [class match $waf_uid equals R8L_GOOD_UID ] ) && ( $method == "POST" && [class match $buri ends_with XXX_LOGIN_URI ] )  } {
@@ -1017,10 +1038,10 @@ when HTTP_RESPONSE priority 143 {
 			# Enable High Speed Logging, OR regular logging on local0. 
 			# Probably should not enable both unless local0 stays on the box, and HSL goes remote.
 			# local0
-			 if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_CNTZ:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~IPreqCnt: $IPreqCnt~,~UIDreqCnt: $UIDreqCnt~,~I2UCnt: $I2UCnt~,~U2ICnt: $U2ICnt~,~BadLogin: $b_log~,~MonIP: $b_ip~,~MonUID: $b_uid~,~"}
+			 if { $BAIU_LOG_LVL >= 1 } {log local0. "~HYDRA_HEAD_CNTZ: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IPreqCnt: $IPreqCnt UIDreqCnt: $UIDreqCnt I2UCnt: $I2UCnt U2ICnt: $U2ICnt BadLogin: $b_log MonIP: $b_ip MonUID: $b_uid"}
 			# HSL
 #			set hsl [HSL::open -proto TCP -pool splunk-sec-pool]
-#			if { $BAIU_LOG_LVL >= 1 } {set baiu_log "~HYDRA_HEAD_CNTZ:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~IPreqCnt: $IPreqCnt~,~UIDreqCnt: $UIDreqCnt~,~I2UCnt: $I2UCnt~,~U2ICnt: $U2ICnt~,~BadLogin: $b_log~,~MonIP: $b_ip~,~MonUID: $b_uid"}
+#			if { $BAIU_LOG_LVL >= 1 } {set baiu_log "logsource=baiu HYDRA_HEAD_CNTZ: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid PASS: $waf_pass HOST: $baiu_host URI: $buri ~ IPreqCnt: $IPreqCnt UIDreqCnt: $UIDreqCnt I2UCnt: $I2UCnt U2ICnt: $U2ICnt BadLogin: $b_log MonIP: $b_ip MonUID: $b_uid"}
 #			HSL::send $hsl $baiu_log
 		}
 	}
