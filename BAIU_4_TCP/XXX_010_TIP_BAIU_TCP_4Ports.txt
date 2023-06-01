@@ -19,6 +19,7 @@ when CLIENT_ACCEPTED priority 110 {
     set dst_port ""
     set r8lport ""
     set b_strm ""
+	set NOR8L ""
     set IPreqCnt ""
     set IPbCnt "" 
     set I2PCnt ""
