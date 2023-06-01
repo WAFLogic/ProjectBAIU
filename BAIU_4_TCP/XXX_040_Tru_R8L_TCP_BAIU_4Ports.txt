@@ -31,12 +31,14 @@ when CLIENT_ACCEPTED priority 140 {
  ########################################################################### 
  # Only process matched ports & allow specific IPs
  if { ( [class match $tip equals R8L_GOOD_IP ] ) || ( [class match $geo_i equals GOOD-geo-isp ] ) || ( [class match $geo_o equals GOOD-geo-org ] ) } {
-  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~IP Whitelisted~,~"}
- return
+    if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~IP Whitelisted~,~"}
+        set NOR8L 1
+        return
  }
  if { ( not [class match $dst_port equals R8L_PORTS ] ) } {
-  if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NOMATCH_DST_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~ClientPort: TCP[TCP::local_port clientside]~,~DST_Port: $dst_port~,~DST_PORT not rate limited~,~"}
- return
+    if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NOMATCH_DST_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~ClientPort: TCP[TCP::local_port clientside]~,~DST_Port: $dst_port~,~DST_PORT not rate limited~,~"}
+        set NOR8L 1
+        return
  }
  if { [class match $tip equals R8L_BAD_IP ] } {
   if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~IP in BAD group~,~"}
@@ -130,7 +132,7 @@ when CLIENT_ACCEPTED priority 140 {
  # Drop packets.
  # reject
  # Drop packets and do not respond 
- #@#drop
+ drop
  # Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
  # FLOW:: priority clientside 0
  # Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
@@ -207,7 +209,7 @@ when CLIENT_ACCEPTED priority 140 {
  # Drop packets.
  # reject
  # Drop packets and do not respond 
- #@#drop
+ drop
  # Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
  # FLOW:: priority clientside 0
  # Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
@@ -261,7 +263,7 @@ when CLIENT_ACCEPTED priority 140 {
  # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
  # Drop packets and do not respond (504 no response from server)
- #drop
+ drop
  # disable events for this connection
  event disable all
  return
@@ -269,7 +271,6 @@ when CLIENT_ACCEPTED priority 140 {
 
  ############################################################################ 
  # Check if too many unique IPs have called a single Port
- # Uncomment one or both logs. Last 1 is best.
  if { $P2ICnt >= 20000 } {
  set IPbTime $StdB
  ############################################################################
@@ -299,7 +300,7 @@ when CLIENT_ACCEPTED priority 140 {
  # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
  # Drop packets and do not respond (504 no response from server)
- #drop
+ drop
  # disable events for this connection
  event disable all
  return
