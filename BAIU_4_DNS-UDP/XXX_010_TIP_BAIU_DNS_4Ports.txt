@@ -16,6 +16,7 @@ when CLIENT_ACCEPTED priority 110 {
     set b_log "0"
     set dst_port ""
     set r8lport ""
+   	set NOR8L ""
     set dns_c ""
     set dns_t ""
     set dns_q ""
