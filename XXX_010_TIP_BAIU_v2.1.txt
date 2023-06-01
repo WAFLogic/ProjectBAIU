@@ -38,6 +38,7 @@ when CLIENT_ACCEPTED priority 110 {
 	set U2ICnt ""
 	set b_ip ""
 	set b_uid ""
+	set NOR8L ""
 	set lp1 ""
 	set lp2 ""
 	set lp3 ""
