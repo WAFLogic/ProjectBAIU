@@ -8,18 +8,16 @@
 
 when CLIENT_ACCEPTED priority 110 {
     # Null out all universal variables
-    if { [ info exists tip ] } {
-    return
-    }
     set tip [IP::client_addr]
 	set b_ip ""
+	set b_dp ""
 	set bhost ""
     set allowed ""
     set b_log "0"
     set dst_port ""
     set r8lport ""
     set b_strm ""
-    set NOR8L ""
+	set NOR8L ""
     set IPreqCnt ""
     set IPbCnt "" 
     set I2PCnt ""
@@ -37,42 +35,11 @@ when CLIENT_ACCEPTED priority 110 {
     # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
     set BAIU_LOG_LVL 1
 
-        if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~CHECK_VARIABLES:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Dst_Port: [TCP::local_port clientside]" }
+        if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~CHECK_VARIABLES:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Dst_Port: [TCP::local_port clientside]" }
 }
 
 when SERVER_CONNECTED priority 111 {
     # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
     set BAIU_LOG_LVL 1
-      if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~DEBUG1:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Dst_Port: [TCP::local_port clientside] ~,~"}  
-
-    # Null out all universal variables
-    if { [ info exists tip ] } {
-    return
-    }
-    set tip [IP::client_addr]
-	set b_ip ""
-	set bhost ""
-    set allowed ""
-    set b_log "0"
-    set dst_port ""
-    set r8lport ""
-    set b_strm ""
-    set IPreqCnt ""
-    set IPbCnt "" 
-    set I2PCnt ""
-    set IPdreqCnt ""
-    set P2ICnt ""
-    set PortreqCnt ""
-    set PortReqMon ""
-	set PortCnt ""
-    set geo_s [whereis $tip abbrev ]
-    set geo_c [whereis $tip country]
-    set geo_i [whereis $tip isp]
-    set geo_o [whereis $tip org]
-    set geo_la [whereis $tip latitude]
-    set geo_lo [whereis $tip longitude]
-
-    # Debug 
-    if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~DEBUG2:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Dst_Port: [TCP::local_port clientside]~,~"}
-
+      if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~DEBUG1:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Dst_Port: [TCP::local_port clientside] ~,~"}  
 }

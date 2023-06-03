@@ -30,37 +30,37 @@ when CLIENT_ACCEPTED priority 120 {
     # Some of the if branches below are redundant, but this setup allows for more granular logging
     if { [class match $tip equals blacklist_IPs] } {
         set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port Blacklisted client IP matched: $tip~,~DG_K: [class search -name blacklist_IPs equals $geo_o ]~,~DG_V: [class search -value blacklist_IPs equals $geo_o]~,~"}
+            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port Blacklisted client IP matched: $tip~,~DG_K: [class search -name blacklist_IPs equals $geo_o]~,~DG_V: [class search -value blacklist_IPs equals $geo_o]~,~"}
     }
 #    if { [class match $tip equals blacklistIP_extdg] } {
 #       set allowed 0
-#            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_IP_EXTDG:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port Blacklisted client IP_EXTDG matched: $tip~,~DG_K: [class search -name blacklistIP_extdg equals $geo_o]~,~DG_V: [class search -value blacklistIP_extdg equals $geo_o]~,~"}
+#            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_IP_EXTDG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port Blacklisted client IP_EXTDG matched: $tip~,~DG_K: [class search -name blacklistIP_extdg equals $geo_o]~,~DG_V: [class search -value blacklistIP_extdg equals $geo_o]~,~"}
 #    }
 
     if { [class match $dst_port equals blacklist_Ports] } {
         set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port Blacklisted client Port matched: $tip~,~DG_K: [class search -name blacklist_Ports equals $dst_port]~,~DG_V: [class search -value blacklist_Ports equals $dst_port]~,~"}
+            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port Blacklisted client Port matched: $tip~,~DG_K: [class search -name blacklist_Ports equals $dst_port]~,~DG_V: [class search -value blacklist_Ports equals $dst_port]~,~"}
     }
 
     if { [class match $geo_o equals blacklist-geo-org ] } {
         set n_geo $geo_o
         set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_ORG:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Blacklisted GEO ORG matched: $n_geo~,~DG_K: [class search -name blacklist-geo-org equals $geo_o]~,~DG_V: [class search -value blacklist-geo-org equals $geo_o]~,~"}
+            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_ORG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Blacklisted GEO ORG matched: $n_geo~,~DG_K: [class search -name blacklist-geo-org equals $geo_o]~,~DG_V: [class search -value blacklist-geo-org equals $geo_o]~,~"}
     }
     if { [class match $geo_i equals blacklist-geo-isp] } {
         set n_geo $geo_i
         set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_ISP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Blacklisted GEO ISP matched: $n_geo~,~DG_K: [class search -name blacklist-geo-isp equals $geo_i]~,~DG_V: [class search -value blacklist-geo-isp equals $geo_i]~,~"}
+            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_ISP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Blacklisted GEO ISP matched: $n_geo~,~DG_K: [class search -name blacklist-geo-isp equals $geo_i]~,~DG_V: [class search -value blacklist-geo-isp equals $geo_i]~,~"}
     }
     if { [class match $geo_c equals blacklist-geo-country] } {
         set n_geo $geo_c
         set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_COUNTRY:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Blacklisted GEO Country matched: $n_geo~,~DG_K: [class search -name blacklist-geo-country equals $geo_c]~,~DG_V: [class search -value blacklist-geo-country equals $geo_c]~,~"}
+            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_COUNTRY:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Blacklisted GEO Country matched: $n_geo~,~DG_K: [class search -name blacklist-geo-country equals $geo_c]~,~DG_V: [class search -value blacklist-geo-country equals $geo_c]~,~"}
     }
     if { [class match $geo_s equals blacklist-geo-state] } {
         set n_geo $geo_s
         set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_STATE:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~Blacklisted GEO State matched: $n_geo~,~DG_K: [class search -name blacklist-geo-state equals $geo_s]~,~DG_V: [class search -value blacklist-geo-state equals $geo_s]~,~"}
+            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_STATE:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Blacklisted GEO State matched: $n_geo~,~DG_K: [class search -name blacklist-geo-state equals $geo_s]~,~DG_V: [class search -value blacklist-geo-state equals $geo_s]~,~"}
     }
 
     if {$allowed ne "1"}{
@@ -76,6 +76,6 @@ when CLIENT_ACCEPTED priority 120 {
         # rateclass tiaa_make_slow
     } else {
         #Request has been allowed
-            if { $BAIU_LOG_LVL >= 3 } { log local0. "~,~ALLOWING:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~Request allowed for $tip~,~"}
+            if { $BAIU_LOG_LVL >= 3 } { log local0. "~,~ALLOWING:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~Request allowed for $tip~,~"}
     }
 }
