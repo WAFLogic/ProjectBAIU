@@ -34,12 +34,14 @@ when HTTP_REQUEST priority 130 {
     if {$tip ne ""} {
     # Only process matched uris & allow specific IPs/UIDs
         if { ( [class match $tip equals R8L_GOOD_IP ] ) } {
-            if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NO_MATCH:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~IP Whitelisted~,~"}
+            if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NO_MATCH:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~IP Whitelisted~,~"}
+			set NOR8L 1
             return
         }
 
     if { ( not [class match [HTTP::uri] equals XXX_LOGIN_URI ] ) and ( not [class match $tip equals R8L_BAD_IP ] ) } {
-        if { $BAIU_LOG_LVL >= 3 } { log local0. "~,~RETURN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Returning from irule---no match on URI or IP found~,~"}
+        if { $BAIU_LOG_LVL >= 3 } { log local0. "~,~RETURN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Returning from irule---no match on URI or IP found~,~"}
+			set NOR8L 1
         return
     }
     HTTP::collect 100
@@ -51,53 +53,85 @@ when HTTP_REQUEST priority 130 {
 # Got the data, parse them and generate the syslog message
 when HTTP_REQUEST_DATA priority 131 {
     if {$tip ne ""} {
+    if { ( $NOR8L == 1 ) } {
+        if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~NOR8L_SET:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~No Rate Limiting Set~,~"}
+    return
+    }
+
 #    # Debug Payload Extraction
 #    if { $BAIU_LOG_LVL >= 4 } {log local0. "~,~PAYLOAD: [HTTP::payload]~,~"}
 
-    # Attempt to extract wp-login.php UID i.e. log
+    # Attempt to extract waflogic dummy site UID 
         # Pull username if present
-        if {$method == "POST" && [HTTP::uri] ends_with "/wp-login.php"  } {
+        if {$method == "POST" && [HTTP::uri] equals "/admin-tools/auth"  } {
             # Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
-                if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Collected request data: [HTTP::payload]~,~"}
+                if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
             # Extract log UID from wordpress from payload 
-            set waf_uid [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ]  log 4 & ] 0 20 ] ]
+            set waf_uid [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ]  username 9 & ] 0 20 ] ]
             # Insert UID Header
             HTTP::header insert "lws" WAF-UID $waf_uid
            # Log UID success event
-                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID=$waf_uid~,~"}
+                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
+        }
+
+    # Attempt to extract waflogic dummy site PWD
+        # Pull username if present
+        if {$method == "POST" && [HTTP::uri] equals "/admin-tools/auth"  } {
+            # Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
+                if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
+            # Extract log UID from wordpress from payload 
+            set waf_pass [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ]  password 9 & ] 0 32 ] ]
+            # Insert UID Header
+            #HTTP::header insert "lws" WAF-UID $waf_uid
+
+            # Log UID success event
+                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~PASSSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
         }
 
     # Attempt to extract wp-login.php UID i.e. log
         # Pull username if present
         if {$method == "POST" && [HTTP::uri] ends_with "/wp-login.php"  } {
             # Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
-                if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Collected request data: [HTTP::payload]~,~"}
+                if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
+            # Extract log UID from wordpress from payload 
+            set waf_uid [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ]  log 4 & ] 0 20 ] ]
+            # Insert UID Header
+            HTTP::header insert "lws" WAF-UID $waf_uid
+           # Log UID success event
+                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
+        }
+
+    # Attempt to extract wp-login.php UID i.e. log
+        # Pull username if present
+        if {$method == "POST" && [HTTP::uri] ends_with "/wp-login.php"  } {
+            # Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
+                if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
             # Extract log UID from wordpress from payload 
             set waf_pass [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ]  pwd 4 & ] 0 32 ] ]
             # Insert UID Header
             #HTTP::header insert "lws" WAF-UID $waf_uid
 
             # Log UID success event
-                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~PASSSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID=$waf_uid~,~"}
+                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~PASSSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
         }
 
 	# Attempt to extract accounts.login UID for LoginID
 		# Pull username if present
 		if {$method == "POST" && [HTTP::uri] ends_with "/accounts.login" } {
 			# Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
-				if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~~,~Collected request data: [HTTP::payload]~,~"}
+				if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
 			# Extract log UID from Gigya Req from payload 
 			set waf_uid [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ] LoginID 8 & ] 0 28 ] ]
 			# Insert UID Header
 			HTTP::header insert "lws" WAF-UID $waf_uid
 		 # Log UID success event
-				if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri ~~,~UID=$waf_uid~,~"}
+				if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS: IP: $tip GEO_ST: $geo_s GEO_CN: $geo_c GEO_ISP: $geo_i GEO_ORG: $geo_o EdgeIP: [IP::client_addr] VIP: [virtual name] SID: $sid~$jsid UID: $waf_uid HOST: $baiu_host URI: $buri~~,~UID: $waf_uid~,~"}
 		}
 
     # Pull SSN from DOB and hash if SSNandDOB page is called
          if {$method == "POST" && [HTTP::uri] equals "/public/authentication/enroll/ssndobandlastname" } {
             # Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
-            if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Collected request data: [HTTP::payload]~,~"}
+            if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
 
         # Extract SSN  from payload (1st attempt)
             binary scan [ sha256 [ string trim [ string range [ findstr [ string map {\x22\x2C\x22 \x26} [string map {\x22\x3A\x22 \x3D} [string map {\x22\x2C\x22\x64\x6F\x62\x22\x3A\x22 \x5F} [string trim [HTTP::payload] ] ] ] ]  lastFourSsn 12 & ] 0 15 ] ] ] H* hex 
@@ -105,7 +139,7 @@ when HTTP_REQUEST_DATA priority 131 {
             # Insert UID Header
 #            #HTTP::header insert "lws" WAF-UID $waf_uid
             # Log UID success event
-                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~SSNSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID=$waf_uid~,~"}
+                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~SSNSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
 
         # Extract SSN  from payload (2nd attempt)
             if {$waf_uid equals "" } {
@@ -114,35 +148,35 @@ when HTTP_REQUEST_DATA priority 131 {
                 # Insert UID Header
 #                #HTTP::header insert "lws" WAF-UID $waf_uid
                 # Log UID success event
-                    if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~SSNSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID=$waf_uid~,~"}
+                    if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~SSNSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
             }
         }
 
         # Pull username if present
         if {$method == "POST" && [HTTP::uri] equals "/public/authentication/securelogin/authenticate" } {
             # Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
-            if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Collected request data: [HTTP::payload]~,~"}
+            if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
 
             # Extract User ID from payload (1st attempt)
             set waf_uid [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ]  userId 7 & ] 0 20 ] ]
             # Insert UID Header
 #            #HTTP::header insert "lws" WAF-UID $waf_uid
             # Log UID success event
-                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID=$waf_uid~,~"}
+                if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
 
             # Username not found with "userId" parameter try username
             if { $waf_uid equals "" } {
                 # Pull username if present
                 if {$method == "POST" } {
                     # Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
-                        if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Collected request data: [HTTP::payload]~,~"}
+                        if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
                     # Extract userId from payload (2nd attempt)
                     set waf_uid [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ]  username 9 & ] 0 20 ] ]
                     # Insert UID Header
 #                   # HTTP::header insert "lws" WAF-UID $waf_uid
 
                     # Log UID success event
-                    if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID=$waf_uid~,~"}
+                    if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
                 }
             }
             # Username still not set so attempt XML style extraction for USERID value
@@ -150,14 +184,14 @@ when HTTP_REQUEST_DATA priority 131 {
                 # Pull username if present
                 if {$method == "POST" } {
                     # Log the debug message if trace is enabled. Could be dangerous capturing all HTTP payload with single syslog line.
-                        if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~Collected request data: [HTTP::payload]~,~"}
+                        if { $BAIU_LOG_LVL >= 4 }{log local0. "~,~INSPECTPAYLOAD:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~Collected request data: [HTTP::payload]~,~"}
                     # Extract USERID from payload (2nd attempt)
                     set waf_uid [ string trim [ string range [ findstr [string map {\x2D\x2D\x2D\x2D\x2D \x26} [string map {\x22 \x26} [string trim [HTTP::payload] ] ] ]  USERID 8 > ] 0 20 ] ]
                     # Insert UID Header
 #                    #HTTP::header insert "lws" WAF-UID $waf_uid
 
                     # Log UID success event
-                        if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID=$waf_uid~,~"}
+                        if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDSUCCESS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
                 }
             }
         }
@@ -165,20 +199,25 @@ when HTTP_REQUEST_DATA priority 131 {
     if { $waf_uid equals "" && ( [class match $buri equals XXX_LOGIN_URI ] ) } {
        set waf_uid UID-NULL
        #HTTP::header insert "lws" WAF-UID UID-NULL
-           if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDFAIL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG:~,~$geo_o EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri ~~,~UID=$waf_uid~,~"}
+           if { $BAIU_LOG_LVL >= 2 } { log local0. "~,~UIDFAIL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~,~SID: $sid~$jsid~,~UID: $waf_uid~,~PASS: $waf_pass~,~HOST: $baiu_host~,~URI: $buri~~,~UID: $waf_uid~,~"}
        }
 
     }
     HTTP::release
 }
 
-when HTTP_RESPONSE priority 131 {
+when HTTP_RESPONSE priority 132 {
+    if { ( $NOR8L == 1 ) } {
+        if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~NOR8L_SET:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~No Rate Limiting Set~,~"}
+    return
+    }
+
 	if { [HTTP::cookie exists "BAIU_UID"] } {
 		HTTP::cookie remove "BAIU_UID"
-		HTTP::cookie insert name "BAIU_UID" value [HTTP::cookie value {$waf_uid}] domain "projectbaiu.org" path "/"
+		HTTP::cookie insert name "BAIU_UID" value [HTTP::cookie value {$waf_uid}] domain $bhost path "/"
 		[HTTP::cookie expires "BAIU_UID" 900 relative ]
 	} else {
-		HTTP::cookie insert name "BAIU_UID" value $waf_uid domain "projectbaiu.org" path "/"
+		HTTP::cookie insert name "BAIU_UID" value $waf_uid domain $bhost path "/"
 		HTTP::cookie expires "BAIU_UID" 900 relative 
 	}
 }

@@ -8,7 +8,15 @@
 
 when CLIENT_ACCEPTED priority 110 {
     # Null out all universal variables
-	set tip [IP::client_addr]
+# The TIP if exists statement can be problematic and mismatch values 
+# when TCP multiplexing is used. Stand alone devices should not have an issue. 
+    if { [ string range [ info exists tip ] 0 15 ] && not ( $tip == "" ) } {
+    return
+    } else {
+    set tip [ string range [IP::client_addr] 0 15 ]
+    }
+# Do not use this if the above validation for TIP is enabled
+#	set tip [ string range [IP::client_addr] 0 15 ]
 	set bhost ""
 	set buri ""
 	set bqry ""
@@ -57,9 +65,9 @@ when CLIENT_ACCEPTED priority 110 {
 when HTTP_REQUEST priority 111 {
 # Set HTTP Base Variables. Not needed if just using BAIU and less use of RAM but still will be minimal.
 # If using Universal HTTP Logger iRule, then these variables being set here now vs later is necessary.
-	set bhost [HTTP::host]
-	set buri [HTTP::path]
-	set bqry [HTTP::query]
+	set bhost [string range [HTTP::host] 0 32 ]
+	set buri [string range [HTTP::path] 0 128 ]
+	set bqry [string range [HTTP::query] 0 128 ]
 ######TroubleShooting Headers
 ###### log local0. "TIP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - True-Client-IP Header value: [HTTP::header True-Client-IP]"
 ###### log local0. "TIP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - True-Client-IP Header value: [HTTP::header X-INF-Forwarded-For]"
@@ -69,14 +77,24 @@ when HTTP_REQUEST priority 111 {
 
 ####################################################################
 #    !!!!BEGIN Akamai - True-Client-IP!!!!
-#    if { [ info exists tip ] } {
-#    return
-#    } else {
-#    set tip [IP::client_addr]
-#    }
+# This if exists statement is an issue when TCP multiplexing and has to be commented 
+# Stand alone is not an issue
+    if { [ string range [ info exists tip ] 0 15 ] && not ( $tip == "" ) } {
+    return
+    } else {
+    set tip [IP::client_addr]
+    }
 
-    if { ( [HTTP::header exists True-Client-IP] ) && not ( [HTTP::header True-Client-IP ] equals "" ) } {
+    if { ( [ string range [HTTP::header exists True-Client-IP] 0 66 ] ) && not ( [HTTP::header True-Client-IP ] equals "" ) } {
 # The last True-Client-IP header will be grabbed
+    if { ( [ string range [ HTTP::header True-Client-IP ] 0 66 ] ) matches_regex { [\w<>#@$%]+ } } {
+	    set tip [IP::client_addr]
+	    # This is used if your IP::client_addr value would be say another load balancer/router 
+	    # w/ a private IP in front of the F5
+	    #set tip "169.254.254.200"
+	    return
+		}
+
     set xff [split [string map [list " " ""] [HTTP::header True-Client-IP]] ","] 
 
 # If the header ends with 127.0.0.1 but is in a list of IPs then set the TIP as the value before 127.0.0.1
@@ -97,9 +115,17 @@ when HTTP_REQUEST priority 111 {
     #HTTP::header remove "True-Client-IP"
     #HTTP::header insert True-Client-IP $tip
     } else {
-    if { ( [HTTP::header exists X-INF-Forwarded-For] ) && not ( [HTTP::header X-INF-Forwarded-For ] equals "" ) } {
+    if { ( [HTTP::header exists X-INF-Forwarded-For ] ) && not ( [HTTP::header X-INF-Forwarded-For ] equals "" ) } {
         if { $BAIU_LOG_LVL >= 3 } { log local0. "TIP: IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] - NO TIP Header - Using X-INF-Forwarded-For." }
         # The last True-Client-IP header will be grabbed
+    if { ( [ string range [ HTTP::header X-INF-Forwarded-For ] 0 66 ] ) matches_regex { [\w<>#@$%]+ } } {
+	    set tip [IP::client_addr]
+	    # This is used if your IP::client_addr value would be say another load balancer/router 
+	    # w/ a private IP in front of the F5
+	    #set tip "169.254.254.200"
+	    return
+		}
+	
         set xff [split [string map [list " " ""] [HTTP::header "X-INF-Forwarded-For"]] ","] 
 
 
