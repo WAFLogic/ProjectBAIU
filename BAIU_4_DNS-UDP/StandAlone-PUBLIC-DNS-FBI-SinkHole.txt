@@ -1,0 +1,23 @@
+when DNS_REQUEST priority 190 {
+#   # Only used as a Stand alone iRule. If BAIU is used, this is not necessary.
+#    set dns_q [string tolower [DNS::question name]]
+    set noDsink 0
+    if { ( $dns_q ends_with "waflogic.com" ) || ( $dns_q ends_with "waflogic.org" ) || ( $dns_q ends_with "projectbaiu.org" ) || ( $dns_q ends_with "thewafguy.com" ) || ( $dns_q ends_with "thewafguy.org" ) } {
+    set noDsink 1
+    return
+    }
+}
+
+when DNS_RESPONSE priority 191 {
+    if { $noDsink == 0 } {
+#    DNS::answer clear
+#    DNS::answer insert "$dns_q. 604800 $dns_c $dns_t 153.31.42.81"
+    set rrs [DNS::answer]
+    foreach rr $rrs {
+    DNS::answer clear
+    }
+    set new_rr [DNS::rr "honeypot.fbi.gov. 604800 IN A 153.31.42.81"]
+    DNS::answer insert $new_rr
+    log local0. "Sent TIP: $tip to $new_rr for DNS_Q: $dns_q"
+    }
+}

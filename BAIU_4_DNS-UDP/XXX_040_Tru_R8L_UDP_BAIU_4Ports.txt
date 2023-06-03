@@ -4,7 +4,7 @@
 #
 # This iRule limits IPs & UIDs extracted from a session against URIs which are configured separately in iRule datagroups
 # where the names are respective to their function. Rate limits are done within a set of values and then block by IP or UID after 
-# set thresholds. There are three levels of ban timers, StdB, LongB, & HalfB though more can be added. 
+# set thresholds. There are three levels ofBanTimers, StdB, LongB, & HalfB though more can be added. 
 # There are three levels of timers, HTime STime & LTime. These cover different timing lengths.
 # There are IPdMaxReqs, UIDMaxReqs, & URIMaxReqs which all set max request values per type.
 # I2UCnt and U2ICnt both have their own timers in the Hydra section.
@@ -23,54 +23,50 @@
 
 when CLIENT_ACCEPTED priority 140 {
  set dst_port UDP[UDP::local_port clientside]
- # Set waf_uid to null. Leaving UID logging in for future expansion ability
+# Set waf_uid to null. Leaving UID logging in for future expansion ability
  set waf_uid UID_NULL
- # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+# 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
  set BAIU_LOG_LVL 1
 
- ########################################################################### 
- # Only process matched ports & allow specific IPs
- if { ( [class match $tip equals R8L_GOOD_IP ] ) || ( [class match $tip equals R8L_GOOD_IP_UDP ] ) || ( [class match $geo_i equals GOOD-geo-isp ] ) || ( [class match $geo_o equals GOOD-geo-org ] ) } {
-  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP:~,~$geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~IP Whitelisted~,~"}
- return
- }
- if { ( not [class match $dst_port equals R8L_PORTS ] ) } {
-  if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NOMATCH_DST_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~ClientPort: UDP[UDP::local_port clientside]~,~DST_Port: $dst_port~,~DST_PORT not rate limited~,~"}
- return
- }
- if { [class match $tip equals R8L_BAD_IP ] } {
-  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port IP in BAD group~,~"}
- }
+########################################################################### 
+# Only process matched ports & allow specific IPs
+    if { ( $NOR8L == 1 ) } {
+        if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~NOR8L_SET:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~No Rate Limiting Set~,~"}
+    return
+	}
+	if { [class match $tip equals R8L_BAD_IP ] } {
+		if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port IP in BAD group~,~"}
+	}
 
- ###########################################################################
- # Sword - Single IP Tracking/Banning - Cut Them Down! BEGIN
- ###########################################################################
- # Used to set different time outs for IP tracking
- # Ban and request times are for all but can make unique if desired
- # Total Port Requests allowed
+###########################################################################
+# Sword - Single IP Tracking/Banning - Cut Them Down! BEGIN
+###########################################################################
+# Used to set different time outs for IP tracking
+# Ban and request times are for all but can make unique if desired
+# Total Port Requests allowed
  set PortMaxReqs 100
 
- # Set Rate Limit Failed Auth Multiplier 
+# Set Rate Limit Failed Auth Multiplier 
  set R8X 1
 
- # Used for standard banning
- # Requests within X seconds
+# Used for standard banning
+# Requests within X seconds
  set STime 115200
- # Ban X seconds
+# Ban X seconds
  set StdB 194400
 
- # Used for short banning
- # Requests within X seconds
+# Used for short banning
+# Requests within X seconds
  set HTime 108000
- # Ban X seconds
+# Ban X seconds
  set HalfB 57600
 
- # Used for longer duration banning
- # Banned events within X seconds
+# Used for longer duration banning
+# Banned events within X seconds
  set LTime 691200
- # Total banned events
+# Total banned events
  set MaxBs 0
- # Ban X seconds
+# Ban X seconds
  set LongB 453600
 
 # # Build monitor table for tracking elements
@@ -78,146 +74,146 @@ when CLIENT_ACCEPTED priority 140 {
 # #set MONITOR_TBL ip_limit_monitor
 # #set MONITOR_TBL uri_limit_monitor
 
- ###########################################################################
- # Distinctions
- # This builds the R8L DST Port tracking value
+###########################################################################
+# Distinctions
+# This builds the R8L DST Port tracking value
  if { [class match $dst_port equals R8L_PORTS ] } {
   set r8lport 1
-  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~R8L_PORT_CALLED:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~R8L DST_PORT called~,~"}
+  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~R8L_PORT_CALLED:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~R8L DST_PORT called~,~"}
  }
  if {$tip ne ""} {
  if { $r8lport == 1 } {
- ###########################################################################
- # This builds the Ban IP tracking value
+###########################################################################
+# This builds the Ban IP tracking value
  set b_ip "b_$tip"
  set b_dp "b_$dst_port"
 
- ###########################################################################
- # Set Normal R8L IP/Port Counters
+###########################################################################
+# Set Normal R8L IP/Port Counters
  set PortCnt [table keys -subtable "PortReqMon" -count]
 
- ###########################################################################
- # Begin the rate limiting by setting the unique ban values
+###########################################################################
+# Begin the rate limiting by setting the unique ban values
  set IPbTime [table timeout -subtable IPBanZ -remaining $b_ip ]
- # Set IP/Port Ban count
+# Set IP/Port Ban count
  set IPbCnt [table lookup -notouch -subtable IPbCnt $b_ip ]
 
- # Check for IP/Port ban time
+# Check for IP/PortBanTime
  if { $IPbTime > 0 } {
   if { $IPbCnt == 1 } {
-  # If first ban... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
+# If first ban... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
   table set -subtable IPBanZ $b_ip 1 $StdB $StdB
   table set -subtable IPbCnt $b_ip 1 $STime $STime
   if { $IPbTime <= {[expr $StdB - 3600 ]} } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~PORT_ROLLING_BAN:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port b_ip: $b_ip Banned for: $StdB~,~Remaining Time Was: $IPbTime~,~"}
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~PORT_ROLLING_BAN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port b_ip: $b_ip IPBanTime: $StdB~,~RemainingTimeWas: $IPbTime~,~"}
   }
   }
 
   if { $IPbCnt >= 2 } {
-  # If already banned... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
+# If already banned... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
   table set -subtable IPBanZ $b_ip 3 $LongB $LongB
   table set -subtable IPbCnt $b_ip 3 $LTime $LTime
   if { $IPbTime <= { [expr $StdB - 3600 ] } } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~PORT_ROLLING_BAN_LONG:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~b_ip: $b_ip~,~Banned for: $longB~,~Remaining Time Was: $IPbTime~,~"}
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~PORT_ROLLING_BAN_LONG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~b_ip: $b_ip~,~IPBanTime: $longB~,~RemainingTimeWas: $IPbTime~,~"}
   }
   }
 
- # Ensure IP is not in request counter to keep cleaner table. 
+# Ensure IP is not in request counter to keep cleaner table. 
  table delete -subtable PortReqMon $b_ip 
 
-#  # Log event with remaining time for IP/Port. Not useful with Rolling ban.
-#  #if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~BANNED_DST_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~b_ip: $b_ip~,~Banned for: $IPbTime~,~Remaining Time: [table timeout -subtable IPBanZ -remaining $b_ip ]~,~"}
- # Drop packets.
- # reject
- # Drop packets and do not respond 
- #@#drop
- # Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
- # FLOW:: priority clientside 0
- # Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
- # rateclass tiaa_make_slow
- # disable events for this connection so no logs are tracked for remaining of Port connection
+#  # Log event with RemainingTimefor IP/Port. Not useful with Rolling ban.
+#  #if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~BANNED_DST_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~b_ip: $b_ip~,~IPBanTime: $IPbTime~,~RemainingTimeIs: [table timeout -subtable IPBanZ -remaining $b_ip ]~,~"}
+# Drop packets.
+# reject
+# Drop packets and do not respond 
+ drop
+# Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
+# FLOW:: priority clientside 0
+# Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
+# rateclass tiaa_make_slow
+# disable events for this connection so no logs are tracked for remaining of Port connection
  event disable all
  return
  }
 
- ###########################################################################
- # Set R8L Counters for R8L PortZ
+###########################################################################
+# Set R8L Counters for R8L PortZ
  set PortreqCnt [table lookup -notouch -subtable PortReqMon $b_ip ]
-  # Log Request Counters
-  # Disabling here since the all in one log is below
-#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_R8LPORT_REQCNT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~PortreqCnt: $PortreqCnt~,~MonIP: $b_ip ~,~"}
+# Log Request Counters
+# Disabling here since the all in one log is below
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_R8LPORT_REQCNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~PortreqCnt: $PortreqCnt~,~MonIP: $b_ip ~,~"}
 
- ###########################################################################
- # Check if IP exists in Port table if not create entry otherwise increment
+###########################################################################
+# Check if IP exists in Port table if not create entry otherwise increment
   if { $PortreqCnt == "" } {
-  # set the lifetime timeout value so request will go away after a set amount of time
+# set the lifetime timeout value so request will go away after a set amount of time
   set PortreqCnt [ table set -subtable PortReqMon $b_ip 1 $STime $STime ]
   } else {
-  # Increment Port Counter
+# Increment Port Counter
   set PortreqCnt [ table incr -notouch -subtable PortReqMon $b_ip ]
   }
 
- ###########################################################################
- # Set Port table limit and let connections pass if table is full
+###########################################################################
+# Set Port table limit and let connections pass if table is full
  if { $PortCnt >= 100000} {
- if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_PORT_TABLE_FULL:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~PortCnt: $PortCnt - They Shall Pass ~,~"}
- # Delete latest IP from PortReqMon table to free up new spot.
+ if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_PORT_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~PortCnt: $PortCnt - They Shall Pass~,~"}
+# Delete latest IP from PortReqMon table to free up new spot.
  table delete -subtable PortReqMon $b_ip 
  return
  } else {
  if { $IPbCnt >= 100000} {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_PORT_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~IPbCnt: $IPbCnt - They Shall Pass ~,~"}
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_PORT_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~IPbCnt: $IPbCnt - They Shall Pass~,~"}
  return
  }
  }
 
- ############################################################################
- # /// Hydra - Single to Many IP/Port Tracking/Banning
- ############################################################################
- # Single IP tracking all Ports - Set values for single IP calling to multi Ports
+############################################################################
+# /// Hydra - Single to Many IP/Port Tracking/Banning
+############################################################################
+# Single IP tracking all Ports - Set values for single IP calling to multi Ports
  set I2PuReq [ table set -subtable I2P$b_ip $b_dp 1 $STime $STime ]
- # Single Port tracking all IPs - Set values for all IPs calling to Port
+# Single Port tracking all IPs - Set values for all IPs calling to Port
  set P2IuReq [ table set -subtable P2I$b_dp $b_ip 1 $STime $STime ]
 
- ############################################################################
- # /// Sword - Single IP/Port Tracking/Banning 
- ############################################################################
- # Check if too many request for an IP
+############################################################################
+# /// Sword - Single IP/Port Tracking/Banning 
+############################################################################
+# Check if too many request for an IP
 
  if { $PortreqCnt > $PortMaxReqs } {
- # Set the short ban time and remove Requests
+# Set the shortBanTime and remove Requests
  set IPbTime $StdB
  table delete -subtable PortReqMon $b_ip 
 
- # Check IP ban levels and set ban times
+# Check IP ban levels and setBanTimes
   if { $IPbCnt == "" } {
   table set -subtable IPbCnt $b_ip 1 $LTime $LTime
   } else {
   set IPbCnt [table incr -notouch -subtable IPbCnt $b_ip ]
-  # Check if we need to ban them for longer
+# Check if we need to ban them for longer
   if { $IPbCnt > $MaxBs } {
   set IPbTime $LongB
   }
   }
 
- # Ban them for $IPbTime 
+# Ban them for $IPbTime 
  table set -subtable IPBanZ $b_ip 1 $IPbTime $IPbTime
 # #table set -subtable $Port_MONITOR_TBL "$b_ip" "UID: $waf_uid; Ban:$IPbTime secs" $IPbTime
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_BANNED_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DST_Port: $dst_port~,~BANNING-b_ip: $b_ip~,~IP~,~Ban Time: $IPbTime~,~"}
- # Drop packets.
- # reject
- # Drop packets and do not respond 
- #@#drop
- # Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
- # FLOW:: priority clientside 0
- # Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
- # rateclass tiaa_make_slow
- # disable events for this connection
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_BANNED_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~BANNINGb_ip: $b_ip~,~IP~,~Ban Time: $IPbTime~,~"}
+# Drop packets.
+# reject
+# Drop packets and do not respond 
+ drop
+# Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
+# FLOW:: priority clientside 0
+# Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
+# rateclass tiaa_make_slow
+# disable events for this connection
  event disable all
  return
  }
 
-  # DEBUG INFO
+# DEBUG INFO
   if { $BAIU_LOG_LVL >= 3 } {
   log local0.alert "PortreqCnt: [table lookup -notouch -subtable PortReqMon $b_ip ]"
   log local0.alert "IPbCnt: [table lookup -notouch -subtable IPbCnt $b_ip]"
@@ -228,89 +224,89 @@ when CLIENT_ACCEPTED priority 140 {
  }
  }
 
- ###########################################################################
- # ... Sword - Single IP/Port Tracking/Banning
- ###########################################################################
+###########################################################################
+# ... Sword - Single IP/Port Tracking/Banning
+###########################################################################
 
- ###########################################################################
- # /// Hydra - Single to Many IP/Port Tracking/Banning - - Multi-Head Attack
- ###########################################################################
- # Set Single to many IPs/Ports Counters
+###########################################################################
+# /// Hydra - Single to Many IP/Port Tracking/Banning - - Multi-Head Attack
+###########################################################################
+# Set Single to many IPs/Ports Counters
  set I2PCnt [table keys -subtable I2P$b_ip -count ]
  set P2ICnt [table keys -subtable P2I$b_dp -count ]
- # Disabled here since the all in one log is enabled below.
-# #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~I2PCnt: $I2PCnt~,~P2ICnt: $P2ICnt~,~b_ip: $b_ip~,~b_dp: $b_dp~,~"}
+# Disabled here since the all in one log is enabled below.
+# #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~I2PCnt: $I2PCnt~,~P2ICnt: $P2ICnt~,~b_ip: $b_ip~,~b_dp: $b_dp~,~"}
 
 
- ############################################################################ 
- # Check if too many unique Ports have been called by a single IP
- # Uncomment one or both logs. Last 1 is best.
+############################################################################ 
+# Check if too many unique Ports have been called by a single IP
+# Uncomment one or both logs. Last 1 is best.
  if { $I2PCnt >= 200 } {
  set IPbTime $StdB
  table set -subtable IPBanZ $b_ip 1 $IPbTime $IPbTime
  table set -subtable IPbCnt $b_ip 1 $IPbTime $IPbTime
- # Clear table of tracking entry since IP are now banned.
+# Clear table of tracking entry since IP are now banned.
  table delete -all -subtable I2P$b_ip 
- # Clear Request monitor for Port & IP
+# Clear Request monitor for Port & IP
  table delete -subtable PortReqMon $b_ip
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~2Many Ports from 1 IP BANNED~,~b_ip: $b_ip~,~Port: $dst_port~,~IP Ban Time: $IPbTime~,~"}
- # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~2Many Ports from 1 IP BANNED~,~b_ip: $b_ip~,~Port: $dst_port~,~IPBanTime: $IPbTime~,~"}
+# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 # HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
 #@# # Send 403 page and reject. HTML content and 403 response.
 #@# HTTP::respond 403 content {<html> blocked </html>} noserver
- # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+# Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
- # Drop packets and do not respond (504 no response from server)
- #drop
- # disable events for this connection
+# Drop packets and do not respond (504 no response from server)
+ drop
+# disable events for this connection
  event disable all
  return
  }
 
- ############################################################################ 
- # Check if too many unique IPs have called a single Port
- # Uncomment one or both logs. Last 1 is best.
+############################################################################ 
+# Check if too many unique IPs have called a single Port
+# Uncomment one or both logs. Last 1 is best.
  if { $P2ICnt >= 2000 } {
  set IPbTime $StdB
- ############################################################################
- # Begin banning ALL (foreach) unique IPs that called single Port
+############################################################################
+# Begin banning ALL (foreach) unique IPs that called single Port
  foreach P2I_tip [table keys -subtable P2I$b_dp ] {
- ############################################################################
- # Ban all IPs used to call single UID
+############################################################################
+# Ban all IPs used to call single UID
  table set -subtable IPBanZ $P2I_tip 1 $IPbTime $IPbTime
  table set -subtable IPbCnt $P2I_tip 1 $IPbTime $IPbTime
- # Max request counts & reset timers for all IPs used to call single Port
- #table set -subtable PortReqMon $P2I_tip 5000 $STime $STime
+# Max request counts & reset timers for all IPs used to call single Port
+#table set -subtable PortReqMon $P2I_tip 5000 $STime $STime
 #  ## Standard log. Use 2nd if banning all IPs used for single Port.
-#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_PORT2IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~2Many IPs for 1 Port - BANNED ALL IPs for Port~,~Last IP: $tip~,~b_ip: $b_ip~,~Port: $dst_port~,~IP Ban Time: $IPbTime~,~"}
-  # Log item when blocking all IPs used.
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_PORT2IP:~,~IP: $P2I_tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~2Many IPs for 1 Port - BANNED ALL IPs for Port~,~Last IP: $tip~,~b_ip: $P2I_tip~,~Port: $dst_port~,~IP Ban Time: $IPbTime~,~"}
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_PORT2IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~2Many IPs for 1 Port - BANNED ALL IPs for Port~,~Last_IP: $tip~,~b_ip: $b_ip~,~Port: $dst_port~,~IPBanTime: $IPbTime~,~"}
+# Log item when blocking all IPs used.
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_PORT2IP:~,~IP: $P2I_tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~2Many IPs for 1 Port - BANNED ALL IPs for Port~,~Last_IP: $tip~,~b_ip: $P2I_tip~,~Port: $dst_port~,~IPBanTime: $IPbTime~,~"}
 # ## Clear table of tracking entry since IPs are now banned. 
- #table delete -all -subtable I2P$P2I_tip
+#table delete -all -subtable I2P$P2I_tip
 # ## Clear Request monitor for all IPs. 
  table delete -subtable PortReqMon $P2I_tip
  }
- # Clear table of tracking entry since all IPs for this port are now banned.
+# Clear table of tracking entry since all IPs for this port are now banned.
  table delete -all -subtable P2I$b_dp
- # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 # HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
 #@# # Send 403 page and reject. HTML content and 403 response.
 #@# HTTP::respond 403 content {<html> blocked </html>} noserver
- # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+# Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
- # Drop packets and do not respond (504 no response from server)
- #drop
- # disable events for this connection
+# Drop packets and do not respond (504 no response from server)
+ drop
+# disable events for this connection
  event disable all
  return
  }
 
- ###########################################################################
- # Hydra - Single to Many IP/Port Tracking - Multi-Head Attack END
- ###########################################################################
+###########################################################################
+# Hydra - Single to Many IP/Port Tracking - Multi-Head Attack END
+###########################################################################
  if { not ( [class match $tip equals R8L_GOOD_IP ] ) && ( [class match $dst_port equals R8L_PORTS ] ) } {
   if { not ( $PortreqCnt equals "" ) } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_PORTZ:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~PortreqCnt: $PortreqCnt~,~I2PCnt: $I2PCnt~,~P2ICnt: $P2ICnt~,~MonIP: $b_ip~,~MonPort: $b_dp~,~"}
+  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~HYDRA_HEAD_PORTZ:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~PortreqCnt: $PortreqCnt~,~I2PCnt: $I2PCnt~,~P2ICnt: $P2ICnt~,~MonIP: $b_ip~,~MonPort: $b_dp~,~"}
   }
  }
 }
@@ -320,11 +316,11 @@ when CLIENT_ACCEPTED priority 140 {
 ###########################################################################
 when DNS_REQUEST priority 141 {
  set dst_port UDP[UDP::local_port clientside]
- # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+# 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
  set BAIU_LOG_LVL 1
  set dns_c [DNS::question class]
  set dns_t [DNS::question type]
- set dns_q [DNS::question name]
+ set dns_q [string tolower [DNS::question name]]
  set geo_s [whereis $tip abbrev ]
  set geo_c [whereis $tip country]
  set geo_i [whereis $tip isp]
@@ -332,457 +328,456 @@ when DNS_REQUEST priority 141 {
  set geo_la [whereis $tip latitude]
  set geo_lo [whereis $tip longitude]
 
- # Used to set different time outs for IP tracking
- # Ban and request times are for all but can make unique if desired
- # Total Port Requests allowed
+# Used to set different time outs for IP tracking
+# Ban and request times are for all but can make unique if desired
+# Total Port Requests allowed
  set IPdMaxReqs 100000
  set DNSMaxReqs 100000
 
- # Set Rate Limit Failed Auth Multiplier 
+# Set Rate Limit Failed Auth Multiplier 
  set R8X 1
 
- # Used for standard banning
- # Requests within X seconds
+# Used for standard banning
+# Requests within X seconds
  set STime 115200
- # Ban X seconds
+# Ban X seconds
  set StdB 194400
 
- # Used for short banning
- # Requests within X seconds
+# Used for short banning
+# Requests within X seconds
  set HTime 108000
- # Ban X seconds
+# Ban X seconds
  set HalfB 57600
 
- # Used for longer duration banning
- # Banned events within X seconds
+# Used for longer duration banning
+# Banned events within X seconds
  set LTime 691200
- # Total banned events
+# Total banned events
  set MaxBs 0
- # Ban X seconds
+# Ban X seconds
  set LongB 453600
 
 
- ########################################################################### 
- # Only process matched ports & allow specific IPs
- if { ( [class match $tip equals R8L_GOOD_IP ] ) } {
-  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DST_Port: $dst_port~,~IP Whitelisted~,~"}
- return
- }
- if { ( not [class match $dst_port equals R8L_PORTS ] ) } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~NOMATCH_DST_PORT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~ClientPort: UDP[UDP::local_port clientside]~,~DST_Port: $dst_port~,~DST_PORT not rate limited~,~"}
- return
- }
- if { [class match $tip equals R8L_BAD_IP ] } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DST_Port: $dst_port~,~IP in BAD group~,~"}
- }
- if { [class match $dns_q equals R8L_BAD_DNS ] } {
-     if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~MATCH_BLACKLIST_DNS-Q:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DST_Port: $dst_port~,~DNS Query Blacklisted - Setting IPBan~,~"}
-        table set -subtable IPbCnt $b_ip 1 $LTime $LTime
-        table set -subtable DNSbCnt $b_dns 1 $STime $STime
- } 
+########################################################################### 
+# Only process matched ports & allow specific IPs
+    if { ( $NOR8L == 1 ) } {
+        if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~NOR8L_SET:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~No Rate Limiting Set~,~"}
+    return
+	}
+	if { [class match $tip equals R8L_BAD_IP ] } {
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DST_Port: $dst_port~,~IP in BAD group~,~"}
+	}
+	if { [class match $dns_q equals R8L_BAD_DNS ] } {
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~MATCH_BLACKLIST_DNS_Q:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DST_Port: $dst_port~,~DNS Query Blacklisted - BANNING and DROPPING~,~IPBanTime: $LTime~,~"}
+			table set -subtable IPbCnt $b_ip 1 $LTime $LTime
+			table set -subtable DNSbCnt $b_dns 1 $STime $STime
+			drop
+			event disable all
+			return
+	}
 
- if {$tip ne ""} {
- if { $r8lport == 1 } {
+	if {$tip ne ""} {
+	if { $r8lport == 1 } {
 
- ###########################################################################
- # Set Normal IP & DNS Counters
+###########################################################################
+# Set Normal IP & DNS Counters
  set IPdCnt [table keys -subtable "IPdReqMon" -count]
  set DNSCnt [table keys -subtable "DNSReqMon" -count]
 
- ###########################################################################
- # Begin the rate limiting by setting the unique ban values
+###########################################################################
+# Begin the rate limiting by setting the unique ban values
  set IPbTime [table timeout -subtable IPBanZ -remaining $b_ip ]
- # Set IP Ban count
+# Set IP Ban count
  set IPbCnt [table lookup -notouch -subtable IPbCnt $b_ip ]
 
- ###########################################################################
- # Check for IP ban time
- if { $IPbTime > 0 } {
-  if { $IPbCnt == 1 } {
-  # If first ban... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
+###########################################################################
+# Check for IPBanTime
+	if { $IPbTime > 0 } {
+		if { $IPbCnt == 1 } {
+# If first ban... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
   table set -subtable IPBanZ $b_ip 1 $StdB $StdB
   table set -subtable IPbCnt $b_ip 1 $STime $STime
-  if { $IPbTime <= [expr {$StdB} - 3600 ] } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_ROLLING_BAN:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_ip: $b_ip~,~IP Ban Time: $StdB~,~Remaining Time Was: $IPbTime~,~"}
-  }
-  }
+		if { $IPbTime <= [expr {$StdB} - 3600 ] } {
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_ROLLING_BAN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_ip: $b_ip~,~IPBanTime: $StdB~,~RemainingTimeWas: $IPbTime~,~"}
+		}
+		}
 
-  if { $IPbCnt >= 2 } {
-  # If already banned... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
+		if { $IPbCnt >= 2 } {
+# If already banned... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
   table set -subtable IPBanZ $b_ip 3 $LongB $LongB
   table set -subtable IPbCnt $b_ip 3 $LTime $LTime
-  if { $IPbTime <= [expr {$StdB} - 3600 ] } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_ROLLING_BAN_LONG:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_ip: $b_ip~,~IP Ban Time: $LongB~,~Remaining Time Was: $IPbTime~,~"}
-  }
-  }
+		if { $IPbTime <= [expr {$StdB} - 3600 ] } {
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_ROLLING_BAN_LONG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_ip: $b_ip~,~IPBanTime: $LongB~,~RemainingTimeWas: $IPbTime~,~"}
+		}
+		}
 
- # Ensure IP is not in request counter to keep cleaner table. 
+# Ensure IP is not in request counter to keep cleaner table. 
  table delete -subtable IPdReqMon $b_ip 
- # Clear table of tracking entry since IP &or DNS are now banned. !!!Disabling DNS since I want this done only at the DNS level to be effective.
+# Clear table of tracking entry since IP &or DNS are now banned. !!!Disabling DNS since I want this done only at the DNS level to be effective.
  table delete -all -subtable I2D$b_ip 
 # #table delete -all -subtable D2I$b_uid
 
 # ## Ban DNS used during IP block invocation. This can be very dangerous since it would block all DNSs used in a list which will likely have a lot of good accounts. They could never stop and ban every user.
 # #table set -subtable DNSBanZ $b_uid 1 $HalfB $HalfB
-# # if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNING-b_uid: $b_uid~,~IP Ban Time: $HalfB~,~"}
+# # if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNINGb_uid: $b_uid~,~IPBanTime: $HalfB~,~"}
 
-#  # Log event with remaining time for IP. Not useful with Rolling ban.
-#  #if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~Remaining Time: [table timeout -subtable IPBanZ -remaining $b_ip ]~,~"}
- # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+#  # Log event with RemainingTimefor IP. Not useful with Rolling ban.
+#  #if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_ip: $b_ip~,~IPBanTime: $IPbTime~,~RemainingTimeIs: [table timeout -subtable IPBanZ -remaining $b_ip ]~,~"}
+# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 # HTTP::respond 302 Location "http://tjmaxx.tjx.com/notavail/en/403.html?id=yes"
- # Send 403 page and reject. HTML content and 403 response.
+# Send 403 page and reject. HTML content and 403 response.
 #@# HTTP::respond 403 content {<html> blocked </html>} noserver
- # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+# Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
- # Drop packets and do not respond (504 no response from server)
- #drop
- # disable events for this connection
+# Drop packets and do not respond (504 no response from server)
+ drop
+# disable events for this connection
  event disable all
  return
- }
+	}
 
- ###########################################################################
- # Set IP table limit and let connections pass if table is full
- if { $IPdCnt >= 85000} {
- if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_TABLE_FULL:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~IPdCnt: $IPdCnt - They Shall Pass ~,~"}
- # Delete latest IP from IPdReqMon table to free up new spot.
+###########################################################################
+# Set IP table limit and let connections pass if table is full
+	if { $IPdCnt >= 85000} {
+	if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~IPdCnt: $IPdCnt - They Shall Pass~,~"}
+# Delete latest IP from IPdReqMon table to free up new spot.
  table delete -subtable IPdReqMon $b_ip 
  table delete -all -subtable I2D$b_ip 
  return
- } else {
- if { $IPbCnt >= 85000} {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~IPbCnt: $IPbCnt - They Shall Pass ~,~"}
+	} else {
+	if { $IPbCnt >= 85000} {
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~IP_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~IPbCnt: $IPbCnt - They Shall Pass~,~"}
  return
- }
- }
+	}
+	}
 
- ###########################################################################
- # This line builds the Ban DNS value
+###########################################################################
+# This line builds the Ban DNS value
  set b_dns "b_$dns_q"
 
- ###########################################################################
- # Set DNS Ban Time
+###########################################################################
+# Set DNSBanTime
  set DNSbTime [table timeout -subtable DNSBanZ -remaining $b_dns ]
 
- # Set DNS Ban count
+# Set DNS Ban count
  set DNSbCnt [table lookup -notouch -subtable DNSbCnt $b_dns ]
- # Set DNS table limit and let connections pass if table is full
- if { $DNSCnt >= 100000} {
- if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DNS_TABLE_FULL:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DNSCnt: $DNSCnt - They Shall Pass ~,~"}
- # Delete latest DNS from DNSReqMon table to free up new spot.
+# Set DNS table limit and let connections pass if table is full
+	if { $DNSCnt >= 100000} {
+	if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DNS_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DNSCnt: $DNSCnt - They Shall Pass~,~"}
+# Delete latest DNS from DNSReqMon table to free up new spot.
  table delete -subtable DNSReqMon $b_dns
  table delete -all -subtable I2D$b_ip 
  table delete -all -subtable D2I$b_dns
  return
- } else {
- if { $DNSbCnt >= 100000 } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DNS_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DNSbCnt: $DNSbCnt - They Shall Pass ~,~"}
+	} else {
+	if { $DNSbCnt >= 100000 } {
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DNS_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DNSbCnt: $DNSbCnt - They Shall Pass~,~"}
  return
- } 
- }
+	} 
+	}
 
- ###########################################################################
- # Check if DNS is white listed. If so let them pass. You must use simplified DNSs for whitelisting
- # We use this one here because we still want an IP Req Count.
- if { ( [class match $dns_q equals R8L_GOOD_DNS ] ) } {
-  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~Username Whitelisted~,~"}
+###########################################################################
+# Check if DNS is white listed. If so let them pass. You must use simplified DNSs for whitelisting
+# We use this one here because we still want an IP Req Count.
+	if { ( [class match $dns_q equals R8L_GOOD_DNS ] ) } {
+		if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~Username Whitelisted~,~"}
  return
- }
+	}
 
- ###########################################################################
- # Check for DNS ban time
- if { $DNSbTime > 0 } {
- ## Reset Ban counter for DNS for repeat failures during blocking period to create a rolling blocking scenario so block does not start until DNS stops.
+###########################################################################
+# Check for DNSBanTime
+	if { $DNSbTime > 0 } {
+## Reset Ban counter for DNS for repeat failures during blocking period to create a rolling blocking scenario so block does not start until DNS stops.
 # # DNS rolling ban VERY helpful to block list attackers. Still can ban valid account.
 # #table set -subtable DNSBanZ $b_dns 1 $HalfB $HalfB
 #  #if { $IPbTime <= [expr {$StdB} - 3600 ] } {
-#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DNS_ROLLING_BAN:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_dns: $b_dns~,~DNS Ban Time: $HalfB~,~Remaining Time Was: $DNSbTime"~,~"}
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~DNS_ROLLING_BAN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_dns: $b_dns~,~DNSBanTime: $HalfB~,~RemainingTimeWas: $DNSbTime"~,~"}
 #  #}
- # Ensure DNS is not in request counter to keep cleaner table. 
+# Ensure DNS is not in request counter to keep cleaner table. 
  table delete -subtable DNSReqMon $b_dns 
- # Clear table of tracking entry since IP &or DNS are now banned. !!! I use both and just IP for IPBans to be the most effective and keep the cleanest tables.
+# Clear table of tracking entry since IP &or DNS are now banned. !!! I use both and just IP for IPBans to be the most effective and keep the cleanest tables.
  table delete -all -subtable I2D$b_ip 
  table delete -all -subtable D2I$b_dns
 
- ## Ban IP used during DNS block invocation
+## Ban IP used during DNS block invocation
  table set -subtable IPBanZ $b_ip 1 $StdB $StdB
  table set -subtable IPbCnt $b_ip 1 $STime $STime
-#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_dns: $b_dns~,~BANNING-b_ip: $b_ip~,~IP Ban Time: $StdB~,~"}
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_dns: $b_dns~,~BANNINGb_ip: $b_ip~,~IPBanTime: $StdB~,~"}
 
-  # Log event with remaining time for DNS. Not useful with Rolling DNS ban.
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_dns: $b_dns~,~BANNING-b_ip: $b_ip~,~IP Ban Time: $StdB~,~DNS Ban Time: $DNSbTime~,~"}
- # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+# Log event with RemainingTimefor DNS. Not useful with Rolling DNS ban.
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~b_dns: $b_dns~,~BANNINGb_ip: $b_ip~,~IPBanTime: $StdB~,~DNSBanTime: $DNSbTime~,~"}
+# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 # HTTP::respond 302 Location "http://tjmaxx.tjx.com/notavail/en/403.html?id=yes"
- # Send 403 page and reject. HTML content and 403 response.
+# Send 403 page and reject. HTML content and 403 response.
 #@# HTTP::respond 403 content {<html> blocked </html>} noserver
- # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+# Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
- # Drop packets and do not respond (504 no response from server)
- #drop
- # disable events for this connection
+# Drop packets and do not respond (504 no response from server)
+ drop
+# disable events for this connection
  event disable all
  return
- }
+	}
 
- ###########################################################################
- # Set IP & DNS Request Counters for DNS Tracker
+###########################################################################
+# Set IP & DNS Request Counters for DNS Tracker
  set IPdreqCnt [table lookup -notouch -subtable IPdReqMon $b_ip ]
  set DNSreqCnt [table lookup -notouch -subtable DNSReqMon $b_dns ]
-  # Log Request Counters. Useful for investigating behavior and tracking all DNSs at the same time.
-  # Disable if you have the All in One log at the end enabled
-#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_DNS_REQCNT:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~IPReqCnt: $IPdreqCnt~,~DNSReqCnt: $DNSreqCnt~,~MonIP: $b_ip~,~MonDNS: $b_dns~,~"}
+# Log Request Counters. Useful for investigating behavior and tracking all DNSs at the same time.
+# Disable if you have the All in One log at the end enabled
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_DNS_REQCNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~IPReqCnt: $IPdreqCnt~,~DNSReqCnt: $DNSreqCnt~,~MonIP: $b_ip~,~MonDNS: $b_dns~,~"}
 
- ###########################################################################
- # Check if IP exists if not create entry otherwise increment
-  if { $IPdreqCnt == "" } {
-  # set the lifetime timeout value so request will go away after a set amount of time
+###########################################################################
+# Check if IP exists if not create entry otherwise increment
+		if { $IPdreqCnt == "" } {
+# set the lifetime timeout value so request will go away after a set amount of time
   set IPdreqCnt [ table set -subtable IPdReqMon $b_ip 1 $STime $STime ]
-  } else {
-  # Increment IP Counter
+		} else {
+# Increment IP Counter
   set IPdreqCnt [ table incr -notouch -subtable IPdReqMon $b_ip ]
-  }
+		}
 
- ###########################################################################
- # Check if DNS exists if not create entry otherwise increment
-  if { $DNSreqCnt == "" } {
-  # set the lifetime timeout value so request will go away after a set amount of time
+###########################################################################
+# Check if DNS exists if not create entry otherwise increment
+		if { $DNSreqCnt == "" } {
+# set the lifetime timeout value so request will go away after a set amount of time
   set DNSreqCnt [ table set -subtable DNSReqMon $b_dns 1 $STime $STime ]
-  } else {
-  # Increment DNS Counter
+		} else {
+# Increment DNS Counter
   set DNSreqCnt [ table incr -notouch -subtable DNSReqMon $b_dns ]
-  }
+		}
 
- ############################################################################
- # ... Sword - Single IP/DNS Tracking/Banning 
- ############################################################################
+############################################################################
+# ... Sword - Single IP/DNS Tracking/Banning 
+############################################################################
 
- ############################################################################
- # /// Hydra - Single to Many IP/DNS Tracking/Banning
- ############################################################################
- # Single IP tracking all DNSs - Set values for single IP calling to multi DNSs
+############################################################################
+# /// Hydra - Single to Many IP/DNS Tracking/Banning
+############################################################################
+# Single IP tracking all DNSs - Set values for single IP calling to multi DNSs
  set I2DuReq [ table set -subtable I2D$b_ip $b_dns 1 $STime $STime ]
- # Single DNS tracking all IPs - Set values for all IPs calling to DNS
+# Single DNS tracking all IPs - Set values for all IPs calling to DNS
  set D2IuReq [ table set -subtable D2I$b_dns $b_ip 1 $STime $STime ]
 
- ############################################################################
- # ... Hydra - Single to Many IP/DNS Tracking/Banning 
- ############################################################################
+############################################################################
+# ... Hydra - Single to Many IP/DNS Tracking/Banning 
+############################################################################
 
- ############################################################################
- # /// Sword - Single IP/DNS Tracking/Banning 
- ############################################################################
- # Check if too many request for an IP
- if { $IPdreqCnt > $IPdMaxReqs } {
- # Set the short ban time and remove httpRequests
+############################################################################
+# /// Sword - Single IP/DNS Tracking/Banning 
+############################################################################
+# Check if too many request for an IP
+	if { $IPdreqCnt > $IPdMaxReqs } {
+# Set the shortBanTime and remove httpRequests
  set IPbTime $StdB
  set DNSbTime $HalfB
  table delete -subtable IPdReqMon $b_ip 
 
- # Check IP ban levels and set ban times
-  if { $IPbCnt == "" } {
+# Check IP ban levels and setBanTimes
+		if { $IPbCnt == "" } {
   table set -subtable IPbCnt $b_ip 1 $LTime $LTime
   table set -subtable DNSbCnt $b_dns 1 $STime $STime
-  } else {
+		} else {
   set IPbCnt [table incr -notouch -subtable IPbCnt $b_ip ]
   table set -subtable DNSbCnt $b_dns 1 $STime $STime
-  # Check if we need to ban them for longer
-  if { $IPbCnt >= $MaxBs } {
+# Check if we need to ban them for longer
+		if { $IPbCnt >= $MaxBs } {
   set IPbTime $LongB
   set DNSbTime $HalfB
-  }
-  }
+		}
+		}
 
- # Ban them for $IPbTime or other - DNS set to half to not punish actual user but still block. If actual user then will get custom block page to call in and alert of fraud.
+# Ban them for $IPbTime or other - DNS set to half to not punish actual user but still block. If actual user then will get custom block page to call in and alert of fraud.
  table set -subtable IPBanZ $b_ip 1 $IPbTime $IPbTime
  table set -subtable DNSBanZ $b_dns 1 $DNSbTime $DNSbTime
- # Clean up Hydra Tables
+# Clean up Hydra Tables
  table delete -all -subtable I2D$b_ip 
 # #table delete -all -subtable D2I$b_dns
 # #table set -subtable $IP_MONITOR_TBL "$b_ip" "DNS: $waf_uid; Ban:$IPbTime secs" $IPbTime
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNING-b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~"}
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNING-b_dns: $b_dns~,~DNS Ban Time: $DNSbTime~,~"}
- # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNINGb_ip: $b_ip~,~IPBanTime: $IPbTime~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNINGb_dns: $b_dns~,~DNSBanTime: $DNSbTime~,~"}
+# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 # HTTP::respond 302 Location "http://tjmaxx.tjx.com/notavail/en/403.html?id=yes"
- # Send 403 page and reject. HTML content and 403 response.
+# Send 403 page and reject. HTML content and 403 response.
 #@# HTTP::respond 403 content {<html> blocked </html>} noserver
- # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+# Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
- # Drop packets and do not respond (504 no response from server)
- #drop
- # disable events for this connection
+# Drop packets and do not respond (504 no response from server)
+ drop
+# disable events for this connection
  event disable all
  return
- }
+	}
 
-  # DEBUG INFO
-  if { $BAIU_LOG_LVL >= 3 } {
+# DEBUG INFO
+		if { $BAIU_LOG_LVL >= 3 } {
   log local0.alert "IPdreqCnt: [table lookup -notouch -subtable IPdReqMon $b_ip ]"
   log local0.alert "IPbCnt: [table lookup -notouch -subtable IPbCnt $b_ip]"
   log local0.alert "IPbTime: [table lookup -notouch -subtable IPBanZ $b_ip]"
 #  #log local0.alert "IP_limit_monitor tbl keys: [table keys -subtable $IP_MONITOR_TBL -notouch]"
-  }
+		}
 
- ###########################################################################
- # Check if too many requests for a user ID
- if { $DNSreqCnt > $DNSMaxReqs } {
- # Set the short ban time and remove httpRequests
+###########################################################################
+# Check if too many requests for a user ID
+	if { $DNSreqCnt > $DNSMaxReqs } {
+# Set the shortBanTime and remove httpRequests
  set IPbTime $StdB
  set DNSbTime $HalfB
  table delete -subtable DNSReqMon $b_dns
 
- # Check DNS ban levels and set ban times
-  if { $DNSbCnt == "" } {
+# Check DNS ban levels and setBanTimes
+		if { $DNSbCnt == "" } {
   table set -subtable IPbCnt $b_ip 1 $STime $STime
   table set -subtable DNSbCnt $b_dns 1 $LTime $LTime
- } else {
+	} else {
  table set -subtable IPbCnt $b_ip 1 $STime $STime
  set DNSbCnt [table incr -notouch -subtable DNSbCnt $b_dns]
- # Check if we need to ban them for longer
-  if { $DNSbCnt > $MaxBs } {
+# Check if we need to ban them for longer
+		if { $DNSbCnt > $MaxBs } {
   set IPbTime $StdB
   set DNSbTime $StdB
-  }
- }
+		}
+	}
 
- # Ban them for $***bTime
+# Ban them for $***bTime
  table set -subtable IPBanZ $b_ip 1 $IPbTime $IPbTime
  table set -subtable DNSBanZ $b_dns 1 $DNSbTime $DNSbTime
- # Clean up Hydra Tables
+# Clean up Hydra Tables
  table delete -all -subtable I2D$b_ip 
  table delete -all -subtable D2I$b_dns
 # #table set -subtable $DNS_MONITOR_TBL "$b_dns" "DNS: $waf_uid; Ban:$DNSbTime secs" $DNSbTime
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNING-b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~"}
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNING-b_dns: $b_dns~,~DNS BanTime: $DNSbTime~,~"}
- # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNINGb_ip: $b_ip~,~IPBanTime: $IPbTime~,~"}
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~BANNINGb_dns: $b_dns~,~DNSBanTime: $DNSbTime~,~"}
+# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 # HTTP::respond 302 Location "http://tjmaxx.tjx.com/notavail/en/403.html?id=yes"
- # Send 403 page and reject. HTML content and 403 response.
+# Send 403 page and reject. HTML content and 403 response.
 #@# HTTP::respond 403 content {<html> blocked </html>} noserver
- # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+# Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
- # Drop packets and do not respond (504 no response from server)
- #drop
- # disable events for this connection
+# Drop packets and do not respond (504 no response from server)
+ drop
+# disable events for this connection
  event disable all
  return
- }
+	}
 
-  # DEBUG INFO
-  if { $BAIU_LOG_LVL >= 3 } {
+# DEBUG INFO
+		if { $BAIU_LOG_LVL >= 3 } {
   log local0.alert "DNSreqCnt: [table lookup -notouch -subtable DNSReqMon $b_dns ]"
   log local0.alert "DNSbCnt: [table lookup -notouch -subtable DNSbCnt $b_dns]"
   log local0.alert "DNSbTime: [table lookup -notouch -subtable DNSBanZ $b_dns]"
 #  #log local0.alert "DNS_limit_monitor tbl keys: [table keys -subtable $DNS_MONITOR_TBL -notouch]"
-  }
- ###########################################################################
- # ... Sword - Single IP/DNS Tracking/Banning
- ###########################################################################
+		}
+###########################################################################
+# ... Sword - Single IP/DNS Tracking/Banning
+###########################################################################
 
- ###########################################################################
- # /// Hydra - Single to Many IP/DNS Tracking/Banning - - Multi-Head Attack
- ###########################################################################
- # Set Single to many IPs/DNSs Counters
+###########################################################################
+# /// Hydra - Single to Many IP/DNS Tracking/Banning - - Multi-Head Attack
+###########################################################################
+# Set Single to many IPs/DNSs Counters
  set I2DCnt [table keys -subtable I2D$b_ip -count ]
  set D2ICnt [table keys -subtable D2I$b_dns -count ]
- # Disable if you have the All in One log at the end enabled
-# #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~I2DCnt: $I2DCnt~,~D2ICnt: $D2ICnt~,~b_ip: $b_ip~,~b_dns: $b_dns~,~"}
- ############################################################################ 
- # Check if too many unique IPs have called a single DNS
- # Uncomment one or both logs. Last 1 is best.
- if { $I2DCnt >= 2000 } {
+# Disable if you have the All in One log at the end enabled
+# #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~I2DCnt: $I2DCnt~,~D2ICnt: $D2ICnt~,~b_ip: $b_ip~,~b_dns: $b_dns~,~"}
+############################################################################ 
+# Check if too many unique IPs have called a single DNS
+# Uncomment one or both logs. Last 1 is best.
+	if { $I2DCnt >= 2000 } {
  set IPbTime $StdB
  set DNSbTime $HalfB
 # ############################################################################
- # Begin banning ALL (foreach) unique DNSs from single IP
+# Begin banning ALL (foreach) unique DNSs from single IP
 # foreach I2D_uid [table keys -subtable I2D$b_ip ] ### Put start brace here if using foreach!!!!
 # ############################################################################
 # # Max Request Counts for IP calling multiple DNSs
 # #table set -subtable IPdReqMon $b_ip 5000 $STime $STime
- # Ban IP calling multiple DNSs !!! Disabling to use set max request counts instead.
+# Ban IP calling multiple DNSs !!! Disabling to use set max request counts instead.
  table set -subtable IPBanZ $b_ip 1 $IPbTime $IPbTime
  table set -subtable IPbCnt $b_ip 1 $IPbTime $IPbTime
 # ## Ban all DNSs the single IP used. Could ban a lot of good accounts.
 # #table set -subtable DNSBanZ $I2D_uid 1 $DNSbTime $DNSbTime 
 #  ## Log item when blocking all DNSs used.
-#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~2Many DNSs for 1 IP - BANNED~,~b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~b_dns: $I2D_uid~,~DNS Ban Time: $DNSbTime~,~"}
- ######### Put end brace here if using foreach!!!!!!!!!! iRule will not load if you put brace in incomplete string despite comment on end
- # Ban DNS at time of ban. 
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~2Many DNSs for 1 IP - BANNED~,~b_ip: $b_ip~,~IPBanTime: $IPbTime~,~b_dns: $I2D_uid~,~DNSBanTime: $DNSbTime~,~"}
+######### Put end brace here if using foreach!!!!!!!!!! iRule will not load if you put brace in incomplete string despite comment on end
+# Ban DNS at time of ban. 
  table set -subtable DNSBanZ $b_dns 1 $DNSbTime $DNSbTime
- # Clear table of tracking entry since IP & DNS are now banned.
+# Clear table of tracking entry since IP & DNS are now banned.
  table delete -all -subtable I2D$b_ip 
  table delete -all -subtable D2I$b_dns
- # Clear Request monitor for DNS & IP
+# Clear Request monitor for DNS & IP
  table delete -subtable IPdReqMon $b_ip
  table delete -subtable DNSReqMon $b_dns
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~2Many DNSs from 1 IP - BANNED~,~b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~b_dns: $b_dns~,~DNS Ban Time: $DNSbTime~,~"}
- # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~2Many DNSs from 1 IP - BANNED~,~b_ip: $b_ip~,~IPBanTime: $IPbTime~,~b_dns: $b_dns~,~DNSBanTime: $DNSbTime~,~"}
+# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 # HTTP::respond 302 Location "http://tjmaxx.tjx.com/notavail/en/403.html?id=yes"
 #@# # Send 403 page and reject. HTML content and 403 response.
 #@# HTTP::respond 403 content {<html> blocked </html>} noserver
- # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+# Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
- # Drop packets and do not respond (504 no response from server)
- #drop
- # disable events for this connection
+# Drop packets and do not respond (504 no response from server)
+ drop
+# disable events for this connection
  event disable all
  return
- }
+	}
 
- ############################################################################  
- # Check if too many unique DNSs have been called from a single IP
- # Uncomment one or both logs. Second is best.
- if { $D2ICnt >= 2000 } {
+############################################################################  
+# Check if too many unique DNSs have been called from a single IP
+# Uncomment one or both logs. Second is best.
+	if { $D2ICnt >= 2000 } {
  set IPbTime $StdB
  set DNSbTime $HalfB
- ############################################################################
- # Begin banning ALL (foreach) unique IPs that called single DNS
+############################################################################
+# Begin banning ALL (foreach) unique IPs that called single DNS
  foreach D2I_tip [table keys -subtable D2I$b_dns ] {
- ############################################################################
- # Ban all IPs used to call single DNS
+############################################################################
+# Ban all IPs used to call single DNS
  table set -subtable IPBanZ $D2I_tip 1 $IPbTime $IPbTime
  table set -subtable IPbCnt $D2I_tip 1 $IPbTime $IPbTime
- # Max request counts & reset timers for all IPs used to call single DNS
- #table set -subtable IPdReqMon $D2I_tip 5000 $STime $STime
+# Max request counts & reset timers for all IPs used to call single DNS
+#table set -subtable IPdReqMon $D2I_tip 5000 $STime $STime
 #  ## Standard log. Use 2nd if banning all IPs used for single DNS.
-#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS2IP:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~2Many IPs for 1 DNS - BANNED~,~b_ip: $b_ip~,~IP Ban Time: $IPbTime~,~b_dns: $b_dns~,~DNS Ban Time: $DNSbTime~,~"}
-  # Log item when blocking all IPs used.
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS2IP: IP: $D2I_tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~2Many IPs for 1 DNS - Last IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name] ~~,~BANNED~,~b_ip: $D2I_tip~,~IP Ban Time: $IPbTime~,~b_dns: $b_dns~,~DNS Ban Time: $DNSbTime~,~"}
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS2IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~2Many IPs for 1 DNS - BANNED~,~b_ip: $b_ip~,~IPBanTime: $IPbTime~,~b_dns: $b_dns~,~DNSBanTime: $DNSbTime~,~"}
+# Log item when blocking all IPs used.
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_DNS2IP:~,~IP: $D2I_tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~2Many IPs for 1 DNS - Last_IP: $tip EdgeIP: [IP::client_addr] VIP: [virtual name]~~,~BANNED~,~b_ip: $D2I_tip~,~IPBanTime: $IPbTime~,~b_dns: $b_dns~,~DNSBanTime: $DNSbTime~,~"}
 # ## Clear table of tracking entry since IPs are now banned. !!! Disabling to use set max request counts instead.
 # #table delete -all -subtable I2D$D2I_tip
 # ## Clear Request monitor for all IPs. !!! Disabling to use set max request counts instead.
 # #table delete -subtable IPdReqMon $D2I_tip
- }
- # Clear table of tracking entry since DNS is now banned. Put outside of (foreach) so command isn't repeated unnecessarily. 
+	}
+# Clear table of tracking entry since DNS is now banned. Put outside of (foreach) so command isn't repeated unnecessarily. 
  table delete -all -subtable D2I$b_dns
- # Clear Request monitor for DNS
+# Clear Request monitor for DNS
  table delete -subtable DNSReqMon $b_dns
- # Ban DNS called from multiple IPs
+# Ban DNS called from multiple IPs
  table set -subtable DNSBanZ $b_dns 1 $DNSbTime $DNSbTime
- # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+# Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
 # HTTP::respond 302 Location "http://tjmaxx.tjx.com/notavail/en/403.html?id=yes"
- # Send 403 page and reject. HTML content and 403 response.
+# Send 403 page and reject. HTML content and 403 response.
 #@# HTTP::respond 403 content {<html> blocked </html>} noserver
- # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+# Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
 #@# reject
- # Drop packets and do not respond (504 no response from server)
- #drop
- # disable events for this connection
+# Drop packets and do not respond (504 no response from server)
+ drop
+# disable events for this connection
  event disable all
  return
- }
+	}
 
- ###########################################################################
- # ... Hydra - Single to Many IP/DNS Tracking - Multi-Head Attack
- ###########################################################################
+###########################################################################
+# ... Hydra - Single to Many IP/DNS Tracking - Multi-Head Attack
+###########################################################################
 
- }
- }
- if { ( [class match $dst_port equals R8L_PORTS ] ) && not ( [class match $tip equals R8L_GOOD_IP ] ) } {
-  if { not ( $IPdreqCnt equals "" && $DNSreqCnt equals "" ) } {
-  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_DNS:~,~IP: $tip~,~GEO_ST:~,~$geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name] ~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~IPdreqCnt: $IPdreqCnt~,~DNSreqCnt: $DNSreqCnt~,~I2DCnt: $I2DCnt~,~D2ICnt: $D2ICnt~,~MonIP: $b_ip~,~MonDNS: $b_dns~,~"}
-  }
- }
+	}
+	}
+	if { ( [class match $dst_port equals R8L_PORTS ] ) && not ( [class match $tip equals R8L_GOOD_IP ] ) } {
+		if { not ( $IPdreqCnt equals "" && $DNSreqCnt equals "" ) } {
+		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_DNS:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~IPdreqCnt: $IPdreqCnt~,~DNSreqCnt: $DNSreqCnt~,~I2DCnt: $I2DCnt~,~D2ICnt: $D2ICnt~,~MonIP: $b_ip~,~MonDNS: $b_dns~,~"}
+		}
+	}
+}
 
 ###########################################################################
 # DNS Query BAIU - END
 ###########################################################################
-}
