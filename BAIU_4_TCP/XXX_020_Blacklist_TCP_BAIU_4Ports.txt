@@ -1,81 +1,317 @@
-# Port based Blacklist for IPs and other Layer 5 and below focuses
-# The name says it all.
+# This iRule was re-designed from the original BAIU which focused on IPs and UIDs for rate limiting. This iRule steps back and focuses on layer 5 and below. 
+# In it's current state the only focus is Layer 3 but extending to other layers depending on the need is easily done.
 # 
-# Check to make sure that the following classes exist before using this iRule:
-#-Note that the below data groups should have their data stored in the data group key name.  The datagroup
-# key value is not used
-# blacklist_IPs - Disallowed true client IP addresses
-# blacklist_IPs_LF - Same as Blacklist_IPs except Data Group is a Local File type referencing a local file which will contain a dynamically updated list of IPs/networks
-# blacklist_Ports - Disallowed server destination ports
-# NOTE - Turn off logging with debug set to 0.  Turn on with 1
+#
+# This iRule limits IPs & UIDs extracted from a session against URIs which are configured separately in iRule datagroups
+# where the names are respective to their function. Rate limits are done within a set of values and then block by IP or UID after 
+# set thresholds. There are three levels ofBanTimers, StdB, LongB, & HalfB though more can be added. 
+# There are three levels of timers, HTime STime & LTime. These cover different timing lengths.
+# There are IPdMaxReqs, UIDMaxReqs, & URIMaxReqs which all set max request values per type.
+# I2UCnt and U2ICnt both have their own timers in the Hydra section.
+# Dependencies: 
+# iRules:
+# 010_TIP_BAIU, 030_UIDExtract_AddHeader_BAIU
+# Data Groups:
+# TC_LOGIN_URI, R8L_URI, R8L_PORTS, R8L_BAD_IP, R8L_BAD_PORTS, R8L_BAD_STREAM, R8L_GOOD_IP, R8L_GOOD_UID, TC_LAN
+# R8L_PORTS entry format is TCP80 for HTTP and UDP53 for DNS as examples
+#
+# !!!BLOCKING MODE!!! How to Enable:
+# Perform and Find/Replace for the string #@# and replace with nothing. This will uncomment the standard 403 blocked content page. 
+# Alternatively you can search for this value and review the rest of the blocking options such as a 302 redirection, or simply no response at all
+#
+# UDP Must have a BIGPROTO or UDP profile configured for the interface to use this. TCP is the same but default build is TCP.
+
+when CLIENT_ACCEPTED priority 140 {
+ set dst_port TCP[TCP::local_port clientside]
+ # Set waf_uid to null. Leaving UID logging in for future expansion ability
+ set waf_uid UID_NULL
+ # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
+ set BAIU_LOG_LVL 1
+
+ ########################################################################### 
+ # Only process matched ports & allow specific IPs
+ if { ( [class match $tip equals R8L_GOOD_IP ] ) || ( [class match $geo_i equals GOOD-geo-isp ] ) || ( [class match $geo_o equals GOOD-geo-org ] ) } {
+	set NOR8L 1
+  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~WHITELIST_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~IP Whitelisted~,~"}
+ return
+ }
+ if { ( not [class match $dst_port equals R8L_PORTS ] ) } {
+	set NOR8L 1
+  if { $BAIU_LOG_LVL >= 3 } {log local0. "~,~NOMATCH_DST_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~ClientPort: TCP[TCP::local_port clientside]~,~DST_Port: $dst_port~,~DST_PORT not rate limited~,~"}
+ return
+ }
+ if { [class match $tip equals R8L_BAD_IP ] } {
+  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~IP in BAD group~,~"}
+ }
+
+ ###########################################################################
+ # Sword - Single IP Tracking/Banning - Cut Them Down! BEGIN
+ ###########################################################################
+ # Used to set different time outs for IP tracking
+ # Ban and request times are for all but can make unique if desired
+ # Total Port Requests allowed
+ set PortMaxReqs 100
+
+ # Set Rate Limit Failed Auth Multiplier 
+ set R8X 1
+
+ # Used for standard banning
+ # Requests within X seconds
+ set STime 115200
+ # Ban X seconds
+ set StdB 194400
+
+ # Used for short banning
+ # Requests within X seconds
+ set HTime 108000
+ # Ban X seconds
+ set HalfB 57600
+
+ # Used for longer duration banning
+ # Banned events within X seconds
+ set LTime 691200
+ # Total banned events
+ set MaxBs 0
+ # Ban X seconds
+ set LongB 453600
+
+# # Build monitor table for tracking elements
+# #set MONITOR_TBL uid_limit_monitor
+# #set MONITOR_TBL ip_limit_monitor
+# #set MONITOR_TBL uri_limit_monitor
+
+ ###########################################################################
+ # Distinctions
+ # This builds the R8L DST Port tracking value
+ if { [class match $dst_port equals R8L_PORTS ] } {
+  set r8lport 1
+  if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~R8L_PORT_CALLED:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~R8L DST_PORT called~,~"}
+ }
+ if {$tip ne ""} {
+ if { $r8lport == 1 } {
+ ###########################################################################
+ # This builds the Ban IP tracking value
+ set b_ip "b_$tip"
+ set b_dp "b_$dst_port"
+
+ ###########################################################################
+ # Set Normal R8L IP/Port Counters
+ set PortCnt [table keys -subtable "PortReqMon" -count]
+
+ ###########################################################################
+ # Begin the rate limiting by setting the unique ban values
+ set IPbTime [table timeout -subtable IPBanZ -remaining $b_ip ]
+ # Set IP/Port Ban count
+ set IPbCnt [table lookup -notouch -subtable IPbCnt $b_ip ]
+
+ # Check for IP/PortBanTime
+ if { $IPbTime > 0 } {
+  if { $IPbCnt == 1 } {
+  # If first ban... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
+  table set -subtable IPBanZ $b_ip 1 $StdB $StdB
+  table set -subtable IPbCnt $b_ip 1 $STime $STime
+  if { $IPbTime <= {[expr $StdB - 3600 ]} } {
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~PORT_ROLLING_BAN:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port b_ip: $b_ip~,~IPBanTime: $StdB~,~RemainingTimeWas: $IPbTime~,~"}
+  }
+  }
+
+  if { $IPbCnt >= 2 } {
+  # If already banned... Reset Ban counter for IP for repeat failures during blocking period to create a rolling blocking scenario so block does not start until IP stops.
+  table set -subtable IPBanZ $b_ip 3 $LongB $LongB
+  table set -subtable IPbCnt $b_ip 3 $LTime $LTime
+  if { $IPbTime <= { [expr $StdB - 3600 ] } } {
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~PORT_ROLLING_BAN_LONG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~b_ip: $b_ip~,~IPBanTime: $LongB~,~RemainingTimeWas: $IPbTime~,~"}
+  }
+  }
+
+ # Ensure IP is not in request counter to keep cleaner table. 
+ table delete -subtable PortReqMon $b_ip 
+
+#  # Log event with RemainingTimefor IP/Port. Not useful with Rolling ban.
+#  #if { $BAIU_LOG_LVL >= 2 } {log local0. "~,~BANNED_DST_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~b_ip: $b_ip~,~IPBanTime: $IPbTime~,~RemainingTimeIs: [table timeout -subtable IPBanZ -remaining $b_ip ]~,~"}
+ # Drop packets.
+ # reject
+ # Drop packets and do not respond 
+ drop
+ # Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
+ # FLOW:: priority clientside 0
+ # Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
+ # rateclass tiaa_make_slow
+ # disable events for this connection so no logs are tracked for remaining of Port connection
+ event disable all
+ return
+ }
+
+ ###########################################################################
+ # Set R8L Counters for R8L PortZ
+ set PortreqCnt [table lookup -notouch -subtable PortReqMon $b_ip ]
+  # Log Request Counters
+  # Disabling here since the all in one log is below
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_R8LPORT_REQCNT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~PortreqCnt: $PortreqCnt~,~MonIP: $b_ip ~,~"}
+
+ ###########################################################################
+ # Check if IP exists in Port table if not create entry otherwise increment
+  if { $PortreqCnt == "" } {
+  # set the lifetime timeout value so request will go away after a set amount of time
+  set PortreqCnt [ table set -subtable PortReqMon $b_ip 1 $STime $STime ]
+  } else {
+  # Increment Port Counter
+  set PortreqCnt [ table incr -notouch -subtable PortReqMon $b_ip ]
+  }
+
+ ###########################################################################
+ # Set Port table limit and let connections pass if table is full
+ if { $PortCnt >= 100000} {
+ if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_PORT_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~PortCnt: $PortCnt - They Shall Pass~,~"}
+ # Delete latest IP from PortReqMon table to free up new spot.
+ table delete -subtable PortReqMon $b_ip 
+ return
+ } else {
+ if { $IPbCnt >= 100000} {
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_PORT_BAN_TABLE_FULL:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~IPbCnt: $IPbCnt - They Shall Pass~,~"}
+ return
+ }
+ }
+
+ ############################################################################
+ # /// Hydra - Single to Many IP/Port Tracking/Banning
+ ############################################################################
+ # Single IP tracking all Ports - Set values for single IP calling to multi Ports
+ set I2PuReq [ table set -subtable I2P$b_ip $b_dp 1 $STime $STime ]
+ # Single Port tracking all IPs - Set values for all IPs calling to Port
+ set P2IuReq [ table set -subtable P2I$b_dp $b_ip 1 $STime $STime ]
+
+ ############################################################################
+ # /// Sword - Single IP/Port Tracking/Banning 
+ ############################################################################
+ # Check if too many request for an IP
+
+ if { $PortreqCnt > $PortMaxReqs } {
+ # Set the shortBanTime and remove Requests
+ set IPbTime $StdB
+ table delete -subtable PortReqMon $b_ip 
+
+ # Check IP ban levels and setBanTimes
+  if { $IPbCnt == "" } {
+  table set -subtable IPbCnt $b_ip 1 $LTime $LTime
+  } else {
+  set IPbCnt [table incr -notouch -subtable IPbCnt $b_ip ]
+  # Check if we need to ban them for longer
+  if { $IPbCnt > $MaxBs } {
+  set IPbTime $LongB
+  }
+  }
+
+ # Ban them for $IPbTime 
+ table set -subtable IPBanZ $b_ip 1 $IPbTime $IPbTime
+# #table set -subtable $Port_MONITOR_TBL "$b_ip" "UID: $waf_uid; Ban:$IPbTime secs" $IPbTime
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BAIU_BANNED_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~BANNINGb_ip: $b_ip~,~IPBanTime: $IPbTime~,~"}
+ # Drop packets.
+ # reject
+ # Drop packets and do not respond 
+ drop
+ # Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
+ # FLOW:: priority clientside 0
+ # Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
+ # rateclass tiaa_make_slow
+ # disable events for this connection
+ event disable all
+ return
+ }
+
+  # DEBUG INFO
+  if { $BAIU_LOG_LVL >= 3 } {
+  log local0.alert "PortreqCnt: [table lookup -notouch -subtable PortReqMon $b_ip ]"
+  log local0.alert "IPbCnt: [table lookup -notouch -subtable IPbCnt $b_ip]"
+  log local0.alert "IPbTime: [table lookup -notouch -subtable IPBanZ $b_ip]"
+#  #log local0.alert "URI_limit_monitor tbl keys: [table keys -subtable $URI_MONITOR_TBL -notouch]"
+  }
+# return
+ }
+ }
+
+ ###########################################################################
+ # ... Sword - Single IP/Port Tracking/Banning
+ ###########################################################################
+
+ ###########################################################################
+ # /// Hydra - Single to Many IP/Port Tracking/Banning - - Multi-Head Attack
+ ###########################################################################
+ # Set Single to many IPs/Ports Counters
+ set I2PCnt [table keys -subtable I2P$b_ip -count ]
+ set P2ICnt [table keys -subtable P2I$b_dp -count ]
+ # Disabled here since the all in one log is enabled below.
+# #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~I2PCnt: $I2PCnt~,~P2ICnt: $P2ICnt~,~b_ip: $b_ip~,~b_dp: $b_dp~,~"}
 
 
-when CLIENT_ACCEPTED priority 120 {
-#if { [IP::protocol] == 6 } {
-        #6 means TCP
-        set dst_port TCP[TCP::local_port clientside]
-#    } else {
-#        #Unhandled protocol
-#        set dst_port 0
-#    return
-#    }
+ ############################################################################ 
+ # Check if too many unique Ports have been called by a single IP
+ # Uncomment one or both logs. Last 1 is best.
+ if { $I2PCnt >= 20 } {
+ set IPbTime $StdB
+ table set -subtable IPBanZ $b_ip 1 $IPbTime $IPbTime
+ table set -subtable IPbCnt $b_ip 1 $IPbTime $IPbTime
+ # Clear table of tracking entry since IP are now banned.
+ table delete -all -subtable I2P$b_ip 
+ # Clear Request monitor for Port & IP
+ table delete -subtable PortReqMon $b_ip
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_IP2PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~2Many Ports from 1 IP - BANNED~,~b_ip: $b_ip~,~DST_Port: $dst_port~,~IPBanTime: $IPbTime~,~"}
+ # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+# HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
+#@# # Send 403 page and reject. HTML content and 403 response.
+#@# HTTP::respond 403 content {<html> blocked </html>} noserver
+ # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+#@# reject
+ # Drop packets and do not respond (504 no response from server)
+ drop
+ # disable events for this connection
+ event disable all
+ return
+ }
 
-    # 0 - NONE, 1 - LOW, 2 - MEDIUM, 3 - VERBOSE
-    set BAIU_LOG_LVL 1
-    set allowed 1
+ ############################################################################ 
+ # Check if too many unique IPs have called a single Port
+ if { $P2ICnt >= 20000 } {
+ set IPbTime $StdB
+ ############################################################################
+ # Begin banning ALL (foreach) unique IPs that called single Port
+ foreach P2I_tip [table keys -subtable P2I$b_dp ] {
+ ############################################################################
+ # Ban all IPs used to call single UID
+ table set -subtable IPBanZ $P2I_tip 1 $IPbTime $IPbTime
+ table set -subtable IPbCnt $P2I_tip 1 $IPbTime $IPbTime
+ # Max request counts & reset timers for all IPs used to call single Port
+ #table set -subtable PortReqMon $P2I_tip 5000 $STime $STime
+#  ## Standard log. Use 2nd if banning all IPs used for single Port.
+#  #if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_PORT2IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~2Many IPs for 1 Port - BANNED ALL IPs for Port~,~Last_IP: $tip~,~b_ip: $b_ip~,~DST_Port: $dst_port~,~IPBanTime: $IPbTime~,~"}
+  # Log item when blocking all IPs used.
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~BANNED_PORT2IP:~,~IP: $P2I_tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~2Many IPs for 1 Port - BANNED ALL IPs for Port~,~Last_IP: $tip~,~b_ip: $P2I_tip~,~DST_Port: $dst_port~,~IPBanTime: $IPbTime~,~"}
+# ## Clear table of tracking entry since IPs are now banned. 
+ #table delete -all -subtable I2P$P2I_tip
+# ## Clear Request monitor for all IPs. 
+ table delete -subtable PortReqMon $P2I_tip
+ }
+ # Clear table of tracking entry since all IPs for this port are now banned.
+ table delete -all -subtable P2I$b_dp
+ # Drop packets or send to 403 and reject rest. Uncomment only one response set at a time.
+# HTTP::respond 302 Location "http://www.tiaa.org/notavail/en/403.html?id=yes"
+#@# # Send 403 page and reject. HTML content and 403 response.
+#@# HTTP::respond 403 content {<html> blocked </html>} noserver
+ # Send 403 page and reject. Close TCP connection so client can't make further requests otherwise will succeed (NEEDED for 403 content page)
+#@# reject
+ # Drop packets and do not respond (504 no response from server)
+ drop
+ # disable events for this connection
+ event disable all
+ return
+ }
 
-
-
-    # The below if blocks are for blacklisting functionality
-    # Some of the if branches below are redundant, but this setup allows for more granular logging
-    if { [class match $tip equals blacklist_IPs] } {
-        set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port Blacklisted client IP matched: $tip~,~DG_K: [class search -name blacklist_IPs equals $geo_o]~,~DG_V: [class search -value blacklist_IPs equals $geo_o]~,~"}
-    }
-#    if { [class match $tip equals blacklistIP_extdg] } {
-#       set allowed 0
-#            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_IP_EXTDG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port Blacklisted client IP_EXTDG matched: $tip~,~DG_K: [class search -name blacklistIP_extdg equals $geo_o]~,~DG_V: [class search -value blacklistIP_extdg equals $geo_o]~,~"}
-#    }
-
-    if { [class match $dst_port equals blacklist_Ports] } {
-        set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_PORT:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port Blacklisted client Port matched: $tip~,~DG_K: [class search -name blacklist_Ports equals $dst_port]~,~DG_V: [class search -value blacklist_Ports equals $dst_port]~,~"}
-    }
-
-    if { [class match $geo_o equals blacklist-geo-org ] } {
-        set n_geo $geo_o
-        set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_ORG:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Blacklisted GEO ORG matched: $n_geo~,~DG_K: [class search -name blacklist-geo-org equals $geo_o]~,~DG_V: [class search -value blacklist-geo-org equals $geo_o]~,~"}
-    }
-    if { [class match $geo_i equals blacklist-geo-isp] } {
-        set n_geo $geo_i
-        set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_ISP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Blacklisted GEO ISP matched: $n_geo~,~DG_K: [class search -name blacklist-geo-isp equals $geo_i]~,~DG_V: [class search -value blacklist-geo-isp equals $geo_i]~,~"}
-    }
-    if { [class match $geo_c equals blacklist-geo-country] } {
-        set n_geo $geo_c
-        set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_COUNTRY:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Blacklisted GEO Country matched: $n_geo~,~DG_K: [class search -name blacklist-geo-country equals $geo_c]~,~DG_V: [class search -value blacklist-geo-country equals $geo_c]~,~"}
-    }
-    if { [class match $geo_s equals blacklist-geo-state] } {
-        set n_geo $geo_s
-        set allowed 0
-            if { $BAIU_LOG_LVL >= 1 } { log local0. "~,~4PORTS_BLACKLIST_GEO_STATE:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~Blacklisted GEO State matched: $n_geo~,~DG_K: [class search -name blacklist-geo-state equals $geo_s]~,~DG_V: [class search -value blacklist-geo-state equals $geo_s]~,~"}
-    }
-
-    if {$allowed ne "1"}{
-        # Change the below line to "drop" to drop the TCP connection instead
-#        #HTTP::respond 403 content {<html> ٩(͡๏̯͡๏)۶ blocked ¯\_(ツ)_/¯ </html>} noserver
-        # Close TCP connection so client can't make further requests
-        #reject
-        # Drop packets and do not respond 
-        drop
-        # Reduce Flow Priority 0-7 (iRule call introduced in V11.5)
-        # FLOW:: priority clientside 0
-        # Set Rate Class - Rate Class must be created in GUI/TMSH before loading this
-        # rateclass tiaa_make_slow
-    } else {
-        #Request has been allowed
-            if { $BAIU_LOG_LVL >= 3 } { log local0. "~,~ALLOWING:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DST_Port: $dst_port~,~Request allowed for $tip~,~"}
-    }
+ ###########################################################################
+ # Hydra - Single to Many IP/Port Tracking - Multi-Head Attack END
+ ###########################################################################
+ if { not ( [class match $tip equals R8L_GOOD_IP ] ) && ( [class match $dst_port equals R8L_PORTS ] ) } {
+  if { not ( $PortreqCnt equals "" ) } {
+  if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~HYDRA_HEAD_TCP_PORTZ:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~PortreqCnt: $PortreqCnt~,~I2PCnt: $I2PCnt~,~P2ICnt: $P2ICnt~,~MonIP: $b_ip~,~MonPort: $b_dp~,~"}
+  }
+ }
 }
