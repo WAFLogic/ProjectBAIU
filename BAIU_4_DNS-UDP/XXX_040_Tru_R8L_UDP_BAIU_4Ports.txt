@@ -367,7 +367,7 @@ when DNS_REQUEST priority 141 {
 	if { [class match $tip equals R8L_BAD_IP ] } {
 		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~MATCH_BAD_IP:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DST_Port: $dst_port~,~IP in BAD group~,~"}
 	}
-	if { [class match $dns_q equals R8L_BAD_DNS ] } {
+	if { [class match $dns_q contains R8L_BAD_DNS ] } {
 		if { $BAIU_LOG_LVL >= 1 } {log local0. "~,~MATCH_BLACKLIST_DNS_Q:~,~IP: $tip~,~GEO_ST: $geo_s~,~GEO_CN: $geo_c~,~GEO_ISP: $geo_i~,~GEO_ORG: $geo_o~,~EdgeIP: [IP::client_addr]~,~VIP: [virtual name]~~,~DNS_C: $dns_c~,~DNS_T: $dns_t~,~DNS_Q: $dns_q~,~DST_Port: $dst_port~,~DNS Query Blacklisted - BANNING and DROPPING~,~IPBanTime: $LTime~,~"}
 			table set -subtable IPbCnt $b_ip 1 $LTime $LTime
 			table set -subtable DNSbCnt $b_dns 1 $STime $STime
